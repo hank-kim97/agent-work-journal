@@ -1,0 +1,9 @@
+{
+  "_comment": "CWD prefix를 위→아래로 검사해 첫 매치 category 사용. work=push, private=로컬, skip=기록안함. journal_dir는 일지가 쌓일 데이터 레포 경로(WORK_JOURNAL_DIR env로 override 가능).",
+  "journal_dir": "~/work-journal-data",
+  "rules": [
+    {"prefix": "~/projects/my-work-project", "category": "work"},
+    {"prefix": "~/personal", "category": "private"}
+  ],
+  "default": "private"
+}
