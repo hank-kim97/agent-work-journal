@@ -40,4 +40,19 @@ ls "$data"/private/*/2026-06-29.md >/dev/null 2>&1 && pass "private entry writte
 echo "$SUMMARY" | bash "$ROOT/scripts/core/write-entry.sh" sess-3 2026-06-29 mac /tmp/wj-skip/z 12:00
 [ ! -e "$data/journals/wj-skip" ] && pass "skip writes nothing" || fail "skip writes nothing"
 
+# ~ prefix regression: config rule with tilde prefix must match expanded absolute path
+tilde_sub="wj-tilde-test-$$"
+cat >"$ROOT/config.json" <<JSON2
+{"journal_dir": "$data",
+ "rules": [
+   {"prefix": "~/$tilde_sub", "category": "work", "project": "tilde-demo"}],
+ "default": "private"}
+JSON2
+tilde_result=$(python3 "$ROOT/scripts/core/classify-cwd.py" "$HOME/$tilde_sub/x")
+case "$tilde_result" in *'"category": "work"'*|*'"category":"work"'*)
+  pass "~ prefix in config rule matches expanded cwd" ;;
+*)
+  fail "~ prefix in config rule matches expanded cwd (got: $tilde_result)" ;;
+esac
+
 finish

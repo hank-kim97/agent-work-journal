@@ -7,6 +7,7 @@ falls back to git toplevel basename, then CWD basename.
 """
 from __future__ import annotations
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -16,7 +17,8 @@ def classify(cwd: str, config: dict) -> dict:
     cwd_norm = cwd.rstrip("/") + "/"
     matched = None
     for rule in config.get("rules", []):
-        prefix = rule.get("prefix", "").rstrip("/") + "/"
+        raw_prefix = os.path.expanduser(rule.get("prefix", ""))
+        prefix = raw_prefix.rstrip("/") + "/"
         if cwd_norm.startswith(prefix):
             matched = rule
             break

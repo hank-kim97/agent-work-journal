@@ -41,4 +41,4 @@ $(tail -c 200000 "$TRANSCRIPT")
 PROMPT
 )
 
-printf '%s' "$PROMPT" | eval "$CMD" 2>/dev/null
+printf '%s' "$PROMPT" | eval "$CMD"
