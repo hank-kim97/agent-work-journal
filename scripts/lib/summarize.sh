@@ -2,6 +2,14 @@
 # Summarize a transcript into a Korean work-journal entry via the resolved CLI.
 # Usage: summarize.sh <transcript> <cwd> <machine> <date> <time> [preferred]
 # Resolution: $SUMMARIZER_CMD > preferred(claude|codex) > autodetect.
+#
+# Prompt layout is prompt-cache friendly (recap-style):
+#   stable instructions -> append-only transcript window -> volatile time last.
+# Prompt caching is a byte-exact prefix match, so anything that changes every
+# call (the clock) must come AFTER the transcript, and the transcript window
+# must not shift on every call. The window start is quantized to WINDOW_STEP:
+# consecutive turns share an identical prefix (KV cache read at ~0.1x price)
+# and the window only jumps once per WINDOW_STEP bytes of transcript growth.
 set -uo pipefail
 
 TRANSCRIPT="${1:?transcript}"; CWD="${2:-}"; MACHINE="${3:-}"; DATE="${4:-}"; TIME="${5:-}"; PREFERRED="${6:-}"
@@ -21,6 +29,17 @@ resolve_cmd() {
 CMD="$(resolve_cmd)"
 [ -z "$CMD" ] && exit 0
 
+# Transcript window: whole file while small (append-only prefix = cache hit),
+# otherwise start at a WINDOW_STEP-aligned byte offset so the prefix stays
+# byte-identical across calls within the same growth band.
+WINDOW_MAX="${SUMMARIZE_WINDOW_MAX:-800000}"    # bytes (~200K tokens)
+WINDOW_STEP="${SUMMARIZE_WINDOW_STEP:-200000}"  # offset quantization step
+SIZE=$(wc -c < "$TRANSCRIPT")
+OFFSET=0
+if [ "$SIZE" -gt "$WINDOW_MAX" ]; then
+  OFFSET=$(( (SIZE - WINDOW_MAX + WINDOW_STEP - 1) / WINDOW_STEP * WINDOW_STEP ))
+fi
+
 PROMPT=$(cat <<PROMPT
 다음 에이전트 세션 transcript을 한국어 업무일지 형식으로 요약해주세요.
 
@@ -34,10 +53,13 @@ PROMPT=$(cat <<PROMPT
 
 작업 디렉토리: $CWD
 머신: $MACHINE
-시각: $DATE $TIME
 
-Transcript (최근 200KB만):
-$(tail -c 200000 "$TRANSCRIPT")
+Transcript:
+$(tail -c +$((OFFSET + 1)) "$TRANSCRIPT")
+
+---
+시각: $DATE $TIME
+위 transcript를 규칙에 따라 요약해주세요.
 PROMPT
 )
 
