@@ -13,7 +13,6 @@ Claude Code / Codex 세션을 자동으로 요약·기록하는 업무일지 도
 - **프롬프트 캐시 친화** — recap식 append-only 프롬프트 구조로 매 턴 요약 비용 절감 ([상세](docs/claude-code.md#프롬프트-캐시-활용-recap식))
 - **프로젝트별 라우팅** — CWD prefix 매핑으로 work / private / skip 분류
 - **도구·데이터 분리** — 이 레포는 스크립트만 담고, 일지는 별도 데이터 레포에 기록
-- **위키 자동 생성** — 선택 cron으로 프로젝트별 README + 인덱스 빌드
 
 ## 빠른 시작
 
@@ -82,9 +81,6 @@ scripts/
     update-section.py                    세션 단위 섹션 갱신
     update-daily-index.py                날짜별 크로스 프로젝트 인덱스 갱신
     write-entry.sh                       요약 → 일지 파일 기록 + commit/push
-    build-wiki.py                        LLM 위키 빌더 (project README + INDEX)
-    build-wiki.sh                        빌더 + commit/push 래퍼 (cron 진입점)
-    install-wiki-cron.sh                 daily cron 등록 스크립트
   adapters/
     claude-code.sh                       Claude Code Stop 훅 어댑터
     codex.sh                             Codex notify 어댑터
@@ -97,25 +93,9 @@ scripts/
 | Claude Code | Stop 훅 (`~/.claude/settings.json`) | [docs/claude-code.md](docs/claude-code.md) |
 | Codex        | notify (`~/.codex/config.toml`)     | [docs/codex.md](docs/codex.md) |
 
-## 위키 자동 생성 (선택)
-
-누적 세션을 LLM으로 압축해 프로젝트별 README와 전체 인덱스를 자동 생성합니다.
-
-```bash
-bash scripts/core/install-wiki-cron.sh   # 매일 04:10 cron 등록
-```
-
-수동 실행:
-```bash
-bash scripts/core/build-wiki.sh             # incremental
-bash scripts/core/build-wiki.sh --force     # 전체 재빌드
-bash scripts/core/build-wiki.sh --project foo
-```
-
 ## 디버깅
 
 - 훅 실행 로그: `~/.claude/journal-hook.log`
-- 위키 빌드 로그: `~/.claude/wiki-build.log`
 
 로그를 실시간으로 보려면:
 ```bash

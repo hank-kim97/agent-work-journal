@@ -73,4 +73,3 @@ esac
 
 echo "==> 완료. 다음 세션부터 일지가 기록됩니다."
 echo "    로그: ~/.claude/journal-hook.log"
-echo "    위키 cron(선택): bash $TOOL_DIR/scripts/core/install-wiki-cron.sh"
