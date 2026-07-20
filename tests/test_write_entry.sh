@@ -40,6 +40,17 @@ ls "$data"/private/*/2026-06-29.md >/dev/null 2>&1 && pass "private entry writte
 echo "$SUMMARY" | bash "$ROOT/scripts/core/write-entry.sh" sess-3 2026-06-29 mac /tmp/wj-skip/z 12:00
 [ ! -e "$data/journals/wj-skip" ] && pass "skip writes nothing" || fail "skip writes nothing"
 
+# format guard: CLI error output leaking through stdout must not be recorded
+echo "API Error: Connection closed mid-response. The response above may be incomplete." \
+  | bash "$ROOT/scripts/core/write-entry.sh" sess-err1 2026-06-29 mac /tmp/wj-work/x 13:00
+grep -q "API Error" "$data/journals/demo/2026-06-29.md" 2>/dev/null \
+  && fail "error output filtered (API Error)" || pass "error output filtered (API Error)"
+
+echo "You've hit your session limit · resets 8:30pm (Asia/Seoul)" \
+  | bash "$ROOT/scripts/core/write-entry.sh" sess-err2 2026-06-29 mac /tmp/wj-work/x 13:01
+grep -q "session limit" "$data/journals/demo/2026-06-29.md" 2>/dev/null \
+  && fail "error output filtered (session limit)" || pass "error output filtered (session limit)"
+
 # ~ prefix regression: config rule with tilde prefix must match expanded absolute path
 tilde_sub="wj-tilde-test-$$"
 cat >"$ROOT/config.json" <<JSON2

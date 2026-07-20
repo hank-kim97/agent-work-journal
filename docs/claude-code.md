@@ -114,6 +114,7 @@ Claude Code는 Stop 훅을 실행할 때 stdin으로 JSON을 전달합니다:
 1. `transcript_path`가 없거나 파일이 존재하지 않는 경우
 2. `session_id`가 비어 있는 경우
 3. transcript에서 `"role":"user"` 줄이 **2개 미만**인 경우 (사용자 발화가 거의 없는 세션)
+4. 요약 출력이 `###` 제목 줄로 시작하지 않는 경우 — 요약기 CLI가 요약 대신 자기 에러 메시지("You've hit your session limit", "API Error: Connection closed" 등)를 stdout으로 내보낸 케이스를 차단
 
 ## 재귀 가드
 

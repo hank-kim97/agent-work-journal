@@ -13,6 +13,12 @@ CORE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SUMMARY="$(cat)"
 [ -z "$SUMMARY" ] && exit 0
 if printf '%s' "$SUMMARY" | head -1 | grep -q "의미 있는 작업 없음"; then exit 0; fi
+# Format guard: a valid summary starts with a "### title" line. Anything else
+# is CLI error output leaking through stdout (session limit, "API Error:
+# Connection closed", rate limit notices, ...) — never record those.
+if ! printf '%s' "$SUMMARY" | sed -n '/[^[:space:]]/{p;q;}' | grep -q '^[[:space:]]*###'; then
+  exit 0
+fi
 
 CLASSIFY=$(python3 "$CORE_DIR/classify-cwd.py" "$CWD" 2>/dev/null || echo '{"category":"private","project":"misc"}')
 CATEGORY=$(printf '%s' "$CLASSIFY" | python3 -c "import json,sys;print(json.load(sys.stdin).get('category','private'))")
