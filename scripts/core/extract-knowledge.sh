@@ -23,7 +23,13 @@ KREPO=$(python3 -c "import json,os,sys
 try: print(os.path.expanduser(json.load(open(sys.argv[1])).get('knowledge_repo','')))
 except Exception: pass" "$CONFIG_PATH" 2>/dev/null)
 [ -z "$KREPO" ] && exit 0                       # opt-in: not configured
-[ ! -d "$KREPO/cards" ] && { echo "$LOG_PREFIX knowledge_repo missing cards/: $KREPO (run install-knowledge.sh)"; exit 0; }
+if [ ! -d "$KREPO/cards" ]; then
+  if [ -d "$KREPO/.git" ]; then
+    mkdir -p "$KREPO/cards"                     # fresh clone: git drops empty dirs
+  else
+    echo "$LOG_PREFIX knowledge_repo is not a git repo: $KREPO (run install-knowledge.sh)"; exit 0
+  fi
+fi
 
 JOURNALS="$JOURNAL_DIR/journals"
 [ -d "$JOURNALS" ] || exit 0
@@ -42,6 +48,16 @@ if [ -d "$KREPO/.git" ]; then
       ( cd "$KREPO" && git rebase --abort >/dev/null 2>&1 )
       echo "$LOG_PREFIX ERROR: pre-sync pull --rebase failed (conflict?) — aborted, no extraction run"
       exit 1
+    fi
+    # deliver stranded commits from an earlier failed push — otherwise a member
+    # whose journals go quiet ("no new knowledge" weeks) never delivers them
+    AHEAD=$(cd "$KREPO" && git rev-list --count '@{u}..HEAD' 2>/dev/null || echo 0)
+    if [ "${AHEAD:-0}" -gt 0 ]; then
+      if ( cd "$KREPO" && git push >/dev/null 2>&1 ); then
+        echo "$LOG_PREFIX delivered $AHEAD stranded commit(s) from a previous failed push"
+      else
+        echo "$LOG_PREFIX ERROR: $AHEAD stranded commit(s) still undelivered (push failing)"
+      fi
     fi
   fi
 fi

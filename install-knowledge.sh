@@ -37,7 +37,8 @@ PY
 # 2) 지식 레포 스캐폴드
 if [ ! -d "$REPO/.git" ]; then
   mkdir -p "$REPO/cards"
-  ( cd "$REPO" && git init -q )
+  touch "$REPO/cards/.gitkeep"   # git tracks no empty dirs — without this, clones lose cards/
+  ( cd "$REPO" && git init -q -b main )
   printf '.extract-cursor\n' > "$REPO/.gitignore"   # per-machine cursor stays local
   [ -f "$REPO/README.md" ] || cat > "$REPO/README.md" <<'MD'
 # RE팀 업무 기록
@@ -52,7 +53,14 @@ MD
   ( cd "$REPO" && git add -A && git -c commit.gpgsign=false commit -qm "chore: scaffold RE-team knowledge repo" )
   echo "knowledge repo scaffolded: $REPO"
 else
-  echo "knowledge repo exists: $REPO"
+  # member-#2 path: repo was cloned from the team remote — heal a missing
+  # cards/ (e.g. scaffolded before .gitkeep existed, or empty default branch)
+  if [ ! -d "$REPO/cards" ]; then
+    mkdir -p "$REPO/cards"; touch "$REPO/cards/.gitkeep"
+    echo "knowledge repo exists: $REPO (cards/ was missing — created)"
+  else
+    echo "knowledge repo exists: $REPO"
+  fi
 fi
 
 # 3) /knowledge 스킬 설치 (<TOOL_DIR> 치환)

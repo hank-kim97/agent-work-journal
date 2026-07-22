@@ -143,6 +143,42 @@ cards_n=$(ls "$krepo/cards" | wc -l | tr -d ' ')
 assert_eq "$cards_n" "$cards_before" "excluded-only run creates no cards"
 assert_file_contains "$krepo/excluded.md" "단일 고객 이슈" "boundary exclusion audited"
 
+# 5.7) fresh clone에 cards/ 없음(빈 디렉토리 미추적) → 자동 생성 후 정상 동작
+kb2="$(mktemp -d)/kb2"
+git clone -q "$krepo" "$kb2" 2>/dev/null
+rm -rf "$kb2/cards"   # 빈 디렉토리가 clone에서 사라진 상황 재현
+data2="$(mktemp -d)"; mkdir -p "$data2/journals/p2"
+printf '# p2\n\n### s\n- 원인 규명\n' > "$data2/journals/p2/2026-07-21.md"
+cat >"$ROOT/config.json" <<JSON
+{"journal_dir": "$data2", "knowledge_repo": "$kb2", "rules": [], "default": "private"}
+JSON
+KNOWLEDGE_LLM_CMD="$mock_ok" bash "$EXTRACT" >/dev/null 2>&1
+assert_eq "$?" "0" "clone without cards/ self-heals"
+[ -f "$kb2/cards/ocr-502-size.md" ] && pass "card written after self-heal" || fail "card written after self-heal"
+
+# 5.8) 미배달 커밋(과거 push 실패분)이 NO-NEW 주간의 pre-sync에서 배달됨
+origin_bare="$(mktemp -d)/origin.git"
+git init -q --bare "$origin_bare"
+# clone은 이미 origin(원본 krepo)을 가짐 → 팀 공용 bare로 교체
+( cd "$kb2" && git remote set-url origin "$origin_bare" \
+  && git push -q origin "HEAD:main" 2>/dev/null \
+  && git branch -q --set-upstream-to=origin/main 2>/dev/null )
+( cd "$kb2" && printf 'stranded\n' > cards/stranded.md && git add cards/ \
+  && git -c commit.gpgsign=false commit -qm "knowledge: stranded" )
+( cd "$origin_bare" && git update-ref -d refs/heads/nonexistent 2>/dev/null )  # no-op: origin은 뒤처진 상태
+sleep 1; printf -- '- 추가\n' >> "$data2/journals/p2/2026-07-21.md"
+mock_noop2="$mock_dir/mock-noop2"
+printf '#!/usr/bin/env bash\ncat >/dev/null\necho "NO NEW KNOWLEDGE"\n' > "$mock_noop2"; chmod +x "$mock_noop2"
+KNOWLEDGE_LLM_CMD="$mock_noop2" bash "$EXTRACT" >/dev/null 2>&1
+check=$(mktemp -d); git clone -q "$origin_bare" "$check/c" 2>/dev/null
+[ -f "$check/c/cards/stranded.md" ] && pass "stranded commit delivered on no-new week" \
+  || fail "stranded commit delivered on no-new week"
+
+# config 복원 (이후 테스트는 원래 krepo 사용)
+cat >"$ROOT/config.json" <<JSON
+{"journal_dir": "$data", "knowledge_repo": "$krepo", "rules": [], "default": "private"}
+JSON
+
 # 6) NO NEW KNOWLEDGE → 커서만 전진, 커밋 없음
 sleep 1; printf -- '- 사소한 추가\n' >> "$data/journals/demo/2026-07-20.md"
 before_commits=$(cd "$krepo" && git rev-list --count HEAD)

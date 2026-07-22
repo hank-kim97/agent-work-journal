@@ -27,6 +27,9 @@ assert_eq "$got" "$repo_parent/kb" "config.json knowledge_repo written"
 
 # 2) 레포 스캐폴드: cards/ + .gitignore(.extract-cursor) + 초기 커밋
 [ -d "$repo_parent/kb/cards" ] && pass "cards/ scaffolded" || fail "cards/ scaffolded"
+# git은 빈 디렉토리를 추적하지 않음 — .gitkeep이 없으면 clone한 팀원의 cards/가 사라짐
+git -C "$repo_parent/kb" ls-files | grep -q "cards/.gitkeep" \
+  && pass "cards/.gitkeep tracked (clone keeps cards/)" || fail "cards/.gitkeep tracked (clone keeps cards/)"
 assert_file_contains "$repo_parent/kb/.gitignore" ".extract-cursor" "cursor gitignored"
 ( cd "$repo_parent/kb" && git log --oneline | grep -q scaffold ) \
   && pass "scaffold committed" || fail "scaffold committed"
