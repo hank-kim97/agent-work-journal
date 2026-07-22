@@ -81,6 +81,16 @@ git -C ~/re-team-work-log remote add origin <팀 공용 레포 URL>
 | AC3 고객 식별정보 0건 | `test_apply_knowledge.sh` (REDACT 3종 + 시크릿 fail-closed + 날짜 오탐 방지) |
 | AC4 카드 4단 구조 | 추출 프롬프트 강제 + dogfood 16/16 실증 |
 
+## 운영 런북 (팀 운영 시)
+
+| 증상 | 대응 |
+|---|---|
+| 로그에 `ERROR: pre-sync pull --rebase failed` | 진짜 텍스트 충돌. `cd <knowledge_repo>` → `git pull --rebase` → 충돌 수동 해결(INDEX.md는 어느 쪽이든 무방 — 다음 추출이 재생성) → `git push`. 해결 전까지 해당 멤버 추출은 안전하게 중단됨 |
+| 로그에 `ERROR: git push failed` / `stranded commit(s)` | 커밋은 로컬에 보존됨. 다음 실행의 pre-sync가 자동 배달. 반복되면 원격 권한·네트워크 확인 |
+| 같은 주에 두 멤버가 같은 문제를 각자 카드화(슬러그 중복) | 한 카드로 수동 병합 후 커밋. **예방: 멤버별 실행 요일 분산**(예: A=월, B=수, C=금) |
+| 도구 레포 이동 후 추출/스킬 무동작 | 훅·스킬이 절대경로 — `setup-team-member.sh` 재실행 |
+| (분기 1회) 시크릿 패턴 점검 | `apply-knowledge.py`의 `SECRET_RE`에 신규 벤더 토큰 포맷 추가 여부 검토 — 무인 push 파이프라인의 유일한 정기 관리 항목 |
+
 ## 디버깅
 
 - 추출 로그: `~/.claude/knowledge-extract.log`

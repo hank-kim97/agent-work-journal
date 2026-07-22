@@ -27,6 +27,22 @@ bash install.sh
 `install.sh`는 연결할 에이전트(Claude Code / Codex / 둘 다)를 묻습니다.  
 `--agent claude|codex|both` 플래그로 비대화식으로 실행할 수 있습니다.
 
+## 팀원 온보딩 (5분, 1명령)
+
+팀에 합류하는 멤버는 위 단계 대신 래퍼 하나로 끝낼 수 있습니다:
+
+```bash
+git clone <도구 레포 URL> ~/tools/agent-work-journal
+cd ~/tools/agent-work-journal
+bash setup-team-member.sh \
+  --work-prefix ~/Documents/braincrew \
+  --knowledge-remote git@github.com:<org>/re-team-work-log.git
+```
+
+config 배선 → 훅 설치 → 개인 데이터 레포 init → 팀 지식 레포 clone → `/knowledge` 스킬 설치까지 한 번에 처리하며, 재실행해도 안전합니다(멱등). 주간 추출 스케줄만 출력 안내에서 선택하면 됩니다.
+
+> ⚠️ **도구 디렉토리를 이동/이름변경하면** 훅과 스킬이 절대경로라 조용히 끊깁니다 — `setup-team-member.sh`를 재실행하세요.
+
 ## 도구·데이터 분리
 
 이 레포는 **스크립트만** 담습니다. 실제 일지(markdown 파일)는 별도 데이터 레포에 기록됩니다.

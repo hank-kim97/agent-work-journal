@@ -53,8 +53,18 @@ if [ "$CATEGORY" = "work" ] && [ -d "$JOURNAL_DIR/.git" ]; then
     if ! git diff --cached --quiet 2>/dev/null; then
       TITLE_LINE=$(printf '%s' "$SUMMARY" | head -1 | sed 's/^#* *//')
       git -c commit.gpgsign=false commit -m "${DATE} ${TIME} ${MACHINE} [${PROJECT}]: ${TITLE_LINE}" 2>/dev/null
-      git pull --rebase --autostash 2>/dev/null || true
-      git push 2>/dev/null || true
+      # Commit every turn (local, cheap — keeps per-session history), but
+      # network sync only when a remote exists and at most once per hour.
+      # Per-turn pull/push round-trips were pure overhead (audit finding);
+      # first push needs upstream set once: `git push -u origin <branch>`.
+      if git remote get-url origin >/dev/null 2>&1; then
+        SYNC_MARK=".git/.journal-last-sync"
+        if [ ! -f "$SYNC_MARK" ] || [ -n "$(find "$SYNC_MARK" -mmin +60 2>/dev/null)" ]; then
+          git pull --rebase --autostash 2>/dev/null || true
+          git push 2>/dev/null || true
+          touch "$SYNC_MARK"
+        fi
+      fi
     fi )
 fi
 exit 0

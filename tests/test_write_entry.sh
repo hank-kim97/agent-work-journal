@@ -51,6 +51,18 @@ echo "You've hit your session limit · resets 8:30pm (Asia/Seoul)" \
 grep -q "session limit" "$data/journals/demo/2026-06-29.md" 2>/dev/null \
   && fail "error output filtered (session limit)" || pass "error output filtered (session limit)"
 
+# push 스로틀: 원격 연결 시 첫 sync는 push, 1시간 내 재push는 스킵(커밋은 계속)
+bare="$(mktemp -d)/origin.git"; git init -q --bare "$bare"
+( cd "$data" && git remote add origin "$bare" && git push -qu origin HEAD 2>/dev/null )
+echo "$SUMMARY" | bash "$ROOT/scripts/core/write-entry.sh" sess-4 2026-06-29 mac /tmp/wj-work/x 13:00
+c1=$(git -C "$bare" rev-list --count --all)
+[ "$c1" -ge 2 ] && pass "remote synced on first window" || fail "remote synced on first window (got $c1)"
+echo "$SUMMARY" | bash "$ROOT/scripts/core/write-entry.sh" sess-5 2026-06-29 mac /tmp/wj-work/x 13:05
+c2=$(git -C "$bare" rev-list --count --all)
+assert_eq "$c2" "$c1" "push throttled within the hour"
+lc=$(git -C "$data" rev-list --count HEAD)
+[ "$lc" -gt "$c2" ] && pass "local commits continue while throttled" || fail "local commits continue while throttled"
+
 # ~ prefix regression: config rule with tilde prefix must match expanded absolute path
 tilde_sub="wj-tilde-test-$$"
 cat >"$ROOT/config.json" <<JSON2

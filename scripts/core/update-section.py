@@ -27,19 +27,14 @@ import re
 import sys
 from pathlib import Path
 
-# Meta line: `cwd` · machine · HH:MM[ → HH:MM]. Tolerates legacy 2-field form
-# (`cwd` · HH:MM) by making the machine segment optional.
+# Meta line: `cwd` · machine · HH:MM[ → HH:MM]
 META_RE = re.compile(
     r"`[^`]+`(?:\s*·\s*[^·\n]+?)?\s*·\s*(\d{2}:\d{2})(?:\s*→\s*(\d{2}:\d{2}))?"
 )
-LEGACY_RE = re.compile(r"마지막 업데이트: (\d{2}:\d{2})")
 
 
 def extract_start_time(block_text: str, default: str) -> str:
     m = META_RE.search(block_text)
-    if m:
-        return m.group(1)
-    m = LEGACY_RE.search(block_text)
     if m:
         return m.group(1)
     return default
