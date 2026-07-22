@@ -59,7 +59,9 @@ def main() -> int:
         print(json.dumps(fallback))
         return 0
     cwd = sys.argv[1]
-    config_path = Path(__file__).resolve().parents[2] / "config.json"
+    # WORK_JOURNAL_CONFIG overrides the config path (keeps tests off the real one)
+    env_cfg = os.environ.get("WORK_JOURNAL_CONFIG")
+    config_path = Path(env_cfg) if env_cfg else Path(__file__).resolve().parents[2] / "config.json"
     try:
         with config_path.open() as f:
             config = json.load(f)

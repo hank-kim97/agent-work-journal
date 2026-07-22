@@ -3,7 +3,9 @@
 # Resolution for JOURNAL_DIR: $WORK_JOURNAL_DIR > config.json journal_dir > TOOL_DIR.
 
 TOOL_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-CONFIG_PATH="$TOOL_DIR/config.json"
+# WORK_JOURNAL_CONFIG overrides the config path (tests point this at a temp
+# file so they never touch the real config.json — see #config-safety).
+CONFIG_PATH="${WORK_JOURNAL_CONFIG:-$TOOL_DIR/config.json}"
 
 _expand_tilde() { case "$1" in "~"/*) printf '%s' "${HOME}/${1#\~/}";; "~") printf '%s' "$HOME";; *) printf '%s' "$1";; esac; }
 

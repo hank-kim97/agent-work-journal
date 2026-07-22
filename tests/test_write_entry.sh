@@ -8,15 +8,11 @@ ROOT="$(cd "$HERE/.." && pwd)"
 data="$(mktemp -d)"
 ( cd "$data" && git init -q && git config user.email t@t && git config user.name t )
 
-# Back up existing config.json if present
-if [ -f "$ROOT/config.json" ]; then
-  cp "$ROOT/config.json" "$ROOT/config.json.bak"
-  trap 'mv "$ROOT/config.json.bak" "$ROOT/config.json"' EXIT
-else
-  trap 'rm -f "$ROOT/config.json"' EXIT
-fi
+# Use an isolated temp config so a crash can never damage the real config.json
+export WORK_JOURNAL_CONFIG="$(mktemp -u)"
+trap 'rm -f "$WORK_JOURNAL_CONFIG"' EXIT
 
-cat >"$ROOT/config.json" <<JSON
+cat >"$WORK_JOURNAL_CONFIG" <<JSON
 {"journal_dir": "$data",
  "rules": [
    {"prefix": "/tmp/wj-work", "category": "work", "project": "demo"},
@@ -65,7 +61,7 @@ lc=$(git -C "$data" rev-list --count HEAD)
 
 # ~ prefix regression: config rule with tilde prefix must match expanded absolute path
 tilde_sub="wj-tilde-test-$$"
-cat >"$ROOT/config.json" <<JSON2
+cat >"$WORK_JOURNAL_CONFIG" <<JSON2
 {"journal_dir": "$data",
  "rules": [
    {"prefix": "~/$tilde_sub", "category": "work", "project": "tilde-demo"}],

@@ -7,13 +7,9 @@ ROOT="$(cd "$HERE/.." && pwd)"
 EXTRACT="$ROOT/scripts/core/extract-knowledge.sh"
 export KNOWLEDGE_ALLOW_CMD_OVERRIDE=1   # test-hook opt-in (security #6)
 
-# config.json 백업/복원 (test_write_entry.sh와 동일 패턴)
-if [ -f "$ROOT/config.json" ]; then
-  cp "$ROOT/config.json" "$ROOT/config.json.bak"
-  trap 'mv "$ROOT/config.json.bak" "$ROOT/config.json"' EXIT
-else
-  trap 'rm -f "$ROOT/config.json"' EXIT
-fi
+# isolated temp config — never touches the real config.json
+export WORK_JOURNAL_CONFIG="$(mktemp -u)"
+trap 'rm -f "$WORK_JOURNAL_CONFIG"' EXIT
 
 data="$(mktemp -d)"; krepo="$(mktemp -d)/re-team-work-log"
 mkdir -p "$data/journals/demo" "$krepo/cards"
@@ -22,7 +18,7 @@ mkdir -p "$data/journals/demo" "$krepo/cards"
 printf '# demo — 2026-07-20\n\n### 세션\n- OCR 502 원인 규명: 1MB 크기 제한\n' > "$data/journals/demo/2026-07-20.md"
 
 # 1) knowledge_repo 미설정 → exit 0, 무부작용
-cat >"$ROOT/config.json" <<JSON
+cat >"$WORK_JOURNAL_CONFIG" <<JSON
 {"journal_dir": "$data", "rules": [], "default": "private"}
 JSON
 out=$(bash "$EXTRACT"); rc=$?
@@ -30,7 +26,7 @@ assert_eq "$rc" "0" "unconfigured repo exits 0"
 [ -z "$out" ] && pass "unconfigured repo is silent" || fail "unconfigured repo is silent (got: $out)"
 
 # 이후 테스트용 config (knowledge_repo 설정)
-cat >"$ROOT/config.json" <<JSON
+cat >"$WORK_JOURNAL_CONFIG" <<JSON
 {"journal_dir": "$data", "knowledge_repo": "$krepo", "rules": [], "default": "private"}
 JSON
 
@@ -149,7 +145,7 @@ git clone -q "$krepo" "$kb2" 2>/dev/null
 rm -rf "$kb2/cards"   # 빈 디렉토리가 clone에서 사라진 상황 재현
 data2="$(mktemp -d)"; mkdir -p "$data2/journals/p2"
 printf '# p2\n\n### s\n- 원인 규명\n' > "$data2/journals/p2/2026-07-21.md"
-cat >"$ROOT/config.json" <<JSON
+cat >"$WORK_JOURNAL_CONFIG" <<JSON
 {"journal_dir": "$data2", "knowledge_repo": "$kb2", "rules": [], "default": "private"}
 JSON
 KNOWLEDGE_LLM_CMD="$mock_ok" bash "$EXTRACT" >/dev/null 2>&1
@@ -175,7 +171,7 @@ check=$(mktemp -d); git clone -q "$origin_bare" "$check/c" 2>/dev/null
   || fail "stranded commit delivered on no-new week"
 
 # config 복원 (이후 테스트는 원래 krepo 사용)
-cat >"$ROOT/config.json" <<JSON
+cat >"$WORK_JOURNAL_CONFIG" <<JSON
 {"journal_dir": "$data", "knowledge_repo": "$krepo", "rules": [], "default": "private"}
 JSON
 

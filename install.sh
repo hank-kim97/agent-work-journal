@@ -4,6 +4,7 @@
 set -euo pipefail
 
 TOOL_DIR="$(cd "$(dirname "$0")" && pwd)"
+CONFIG="${WORK_JOURNAL_CONFIG:-$TOOL_DIR/config.json}"   # tests override this
 AGENT=""; JDIR=""
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -20,12 +21,12 @@ if [ -z "$AGENT" ]; then
 fi
 
 # config.json 보장
-if [ ! -f "$TOOL_DIR/config.json" ]; then
-  cp "$TOOL_DIR/config.example.json" "$TOOL_DIR/config.json"
-  echo "config.json 생성됨 — 디렉토리 매핑을 편집하세요: $TOOL_DIR/config.json"
+if [ ! -f "$CONFIG" ]; then
+  cp "$TOOL_DIR/config.example.json" "$CONFIG"
+  echo "config.json 생성됨 — 디렉토리 매핑을 편집하세요: $CONFIG"
 fi
 if [ -n "$JDIR" ]; then
-  python3 - "$TOOL_DIR/config.json" "$JDIR" <<'PY'
+  python3 - "$CONFIG" "$JDIR" <<'PY'
 import json,sys
 p,jd=sys.argv[1],sys.argv[2]
 d=json.load(open(p)); d["journal_dir"]=jd

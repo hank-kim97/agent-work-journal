@@ -11,6 +11,7 @@
 set -euo pipefail
 
 TOOL_DIR="$(cd "$(dirname "$0")" && pwd)"
+CONFIG="${WORK_JOURNAL_CONFIG:-$TOOL_DIR/config.json}"   # tests override this
 REPO=""
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -24,8 +25,8 @@ done
 case "$REPO" in "~"/*) REPO="$HOME/${REPO#\~/}";; "~") REPO="$HOME";; esac
 
 # 1) config.json에 knowledge_repo 기록
-[ -f "$TOOL_DIR/config.json" ] || cp "$TOOL_DIR/config.example.json" "$TOOL_DIR/config.json"
-python3 - "$TOOL_DIR/config.json" "$REPO" <<'PY'
+[ -f "$CONFIG" ] || cp "$TOOL_DIR/config.example.json" "$CONFIG"
+python3 - "$CONFIG" "$REPO" <<'PY'
 import json, sys
 p, repo = sys.argv[1], sys.argv[2]
 d = json.load(open(p))

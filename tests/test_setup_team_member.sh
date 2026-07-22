@@ -4,14 +4,9 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
 . "$HERE/helpers.sh"
 
-# config.json 백업/복원
-if [ -f "$ROOT/config.json" ]; then
-  cp "$ROOT/config.json" "$ROOT/config.json.bak"
-  trap 'mv "$ROOT/config.json.bak" "$ROOT/config.json"' EXIT
-else
-  trap 'rm -f "$ROOT/config.json"' EXIT
-fi
-rm -f "$ROOT/config.json"   # 신규 멤버 상황
+# isolated temp config — new-member scenario means it starts absent
+export WORK_JOURNAL_CONFIG="$(mktemp -u)"
+trap 'rm -f "$WORK_JOURNAL_CONFIG"' EXIT
 
 sandbox="$(mktemp -d)"
 export GIT_AUTHOR_NAME=t GIT_AUTHOR_EMAIL=t@t GIT_COMMITTER_NAME=t GIT_COMMITTER_EMAIL=t@t
@@ -30,7 +25,7 @@ HOME="$sandbox/home" bash "$ROOT/setup-team-member.sh" \
 assert_eq "$?" "0" "wizard exits 0"
 
 # 1) config: journal_dir + work rule
-got=$(python3 -c "import json;d=json.load(open('$ROOT/config.json'));print(d['journal_dir'], d['rules'][0]['prefix'], d['rules'][0]['category'])")
+got=$(python3 -c "import json;d=json.load(open('$WORK_JOURNAL_CONFIG'));print(d['journal_dir'], d['rules'][0]['prefix'], d['rules'][0]['category'])")
 assert_eq "$got" "$sandbox/home/work-journal-data $sandbox/projects work" "config wired"
 
 # 2) 훅
@@ -43,7 +38,7 @@ assert_file_contains "$sandbox/home/work-journal-data/.gitignore" "private/" "pr
 # 4) 지식 레포 clone (cards/ 유지) + 스킬 설치
 [ -d "$sandbox/home/re-team-work-log/cards" ] && pass "knowledge repo cloned with cards/" || fail "knowledge repo cloned with cards/"
 [ -f "$sandbox/home/.claude/skills/knowledge/SKILL.md" ] && pass "knowledge skill installed" || fail "knowledge skill installed"
-kr=$(python3 -c "import json;print(json.load(open('$ROOT/config.json')).get('knowledge_repo',''))")
+kr=$(python3 -c "import json;print(json.load(open('$WORK_JOURNAL_CONFIG')).get('knowledge_repo',''))")
 assert_eq "$kr" "$sandbox/home/re-team-work-log" "knowledge_repo configured"
 
 # 5) 멱등 재실행 (rule 중복 없음)
@@ -53,7 +48,7 @@ HOME="$sandbox/home" bash "$ROOT/setup-team-member.sh" \
   --knowledge-remote "$sandbox/team-kb.git" \
   --knowledge-dir "$sandbox/home/re-team-work-log" >/dev/null 2>&1
 assert_eq "$?" "0" "re-run idempotent"
-n=$(python3 -c "import json;print(len(json.load(open('$ROOT/config.json'))['rules']))")
+n=$(python3 -c "import json;print(len(json.load(open('$WORK_JOURNAL_CONFIG'))['rules']))")
 assert_eq "$n" "1" "no duplicate rules on re-run"
 
 finish

@@ -14,6 +14,7 @@
 set -euo pipefail
 
 TOOL_DIR="$(cd "$(dirname "$0")" && pwd)"
+CONFIG="${WORK_JOURNAL_CONFIG:-$TOOL_DIR/config.json}"   # tests override this
 WORK_PREFIX=""; JDIR="$HOME/work-journal-data"; KREMOTE=""; KDIR="$HOME/re-team-work-log"; AGENT="claude"
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -30,7 +31,7 @@ expand() { case "$1" in "~"/*) printf '%s' "$HOME/${1#\~/}";; "~") printf '%s' "
 JDIR="$(expand "$JDIR")"; KDIR="$(expand "$KDIR")"
 
 echo "== 1/5 config.json =="
-python3 - "$TOOL_DIR/config.json" "$JDIR" "$WORK_PREFIX" <<'PY'
+python3 - "$CONFIG" "$JDIR" "$WORK_PREFIX" <<'PY'
 import json, os, sys
 path, jdir, prefix = sys.argv[1], sys.argv[2], sys.argv[3]
 d = json.load(open(path)) if os.path.exists(path) else {}
@@ -46,7 +47,7 @@ echo "== 2/5 훅 배선 (install.sh) =="
 bash "$TOOL_DIR/install.sh" --agent "$AGENT"
 
 echo "== 3/5 개인 데이터 레포 =="
-JDIR_REAL="$(python3 -c "import json;print(json.load(open('$TOOL_DIR/config.json'))['journal_dir'])")"
+JDIR_REAL="$(python3 -c "import json;print(json.load(open('$CONFIG'))['journal_dir'])")"
 JDIR_REAL="$(expand "$JDIR_REAL")"
 if [ ! -d "$JDIR_REAL/.git" ]; then
   mkdir -p "$JDIR_REAL"
