@@ -93,9 +93,20 @@ scripts/
 | Claude Code | Stop 훅 (`~/.claude/settings.json`) | [docs/claude-code.md](docs/claude-code.md) |
 | Codex        | notify (`~/.codex/config.toml`)     | [docs/codex.md](docs/codex.md) |
 
+## 팀 지식 추출 — RE팀 업무 기록 (선택)
+
+개인 일지에서 팀 재사용 지식(트러블슈팅 카드)을 주 1회 자동 증류해 팀 공용 레포에 축적하고, `/knowledge` 스킬로 검색합니다. 완전 opt-in — 미설정 시 코어에 영향 없음.
+
+```bash
+bash install-knowledge.sh --repo ~/re-team-work-log
+```
+
+상세: [docs/knowledge.md](docs/knowledge.md)
+
 ## 디버깅
 
 - 훅 실행 로그: `~/.claude/journal-hook.log`
+- 지식 추출 로그: `~/.claude/knowledge-extract.log`
 
 로그를 실시간으로 보려면:
 ```bash
