@@ -203,7 +203,7 @@ sources: ["[X] 2026-09-01"]
 # 2차 리댁션 검증
 
 ## 문제상황
-입사연도형 사번 20180042 계정, 담당자 kim@brain-crew.com, 내부 위키 https://wiki.corp.local/page 참조. 처리일 20260714, 공개 문서 https://github.com/org/repo 참고
+입사연도형 사번 20180042 계정, 담당자 kim@brain-crew.com, 내부 위키 https://wiki.corp.local/page 참조. 처리일 20260714, 공개 문서 https://github.com/org/repo 참고. 로컬 재현 Location: http://localhost:15000/prefix
 ## 시도
 x
 ## 해결
@@ -218,5 +218,7 @@ assert_file_contains "$card2" "[REDACTED-EMAIL]" "email redacted"
 assert_file_contains "$card2" "[REDACTED-URL]" "internal url redacted"
 assert_file_contains "$card2" "20260714" "genuine YYYYMMDD date preserved"
 assert_file_contains "$card2" "https://github.com/org/repo" "public url preserved"
+# localhost은 내부 정보가 아니고 재현 스니펫의 핵심이므로 보존해야 한다 (과잉 리댁션 방지)
+assert_file_contains "$card2" "http://localhost:15000/prefix" "localhost repro url preserved"
 
 finish

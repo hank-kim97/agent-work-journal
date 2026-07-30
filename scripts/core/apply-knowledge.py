@@ -80,8 +80,12 @@ def _redact_id(m: re.Match) -> str:
 
 REDACT_RES = [
     (re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b"), "[REDACTED-EMAIL]"),
+    # Internal hosts only. `localhost` is deliberately NOT matched: it reveals
+    # nothing about internal infra and appears in reproduction snippets whose
+    # whole point is the URL (scheme/port) — redacting it destroyed a card's
+    # teaching value. Credentials inside such URLs are still caught by SECRET_RE.
     (re.compile(
-        r"https?://(?:localhost|[\w.-]+\.(?:internal|corp|local|intra)\b|\d{1,3}(?:\.\d{1,3}){3})[^\s)\]]*"
+        r"https?://(?:[\w.-]+\.(?:internal|corp|local|intra)\b|\d{1,3}(?:\.\d{1,3}){3})[^\s)\]]*"
     ), "[REDACTED-URL]"),
     (re.compile(r"\b(?:10|172\.(?:1[6-9]|2\d|3[01])|192\.168|100\.64)(?:\.\d{1,3}){2,3}\b"), "[REDACTED-IP]"),
     (re.compile(r"\bpageId=\d+\b"), "[REDACTED-PAGEID]"),
