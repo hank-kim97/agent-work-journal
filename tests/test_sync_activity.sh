@@ -24,6 +24,8 @@ cat > "$data/journals/doc-console/2026-08-03.md" <<MD
 
 **Done**
 - 원인 규명
+
+<sub>cwd: \`/Users/x/Documents/braincrew/skt-agent-proj/doc-console\`</sub>
 MD
 # 같은 세션이 다른 프로젝트에서도 작업 — INDEX가 하나의 작업으로 보여줘야 한다
 mkdir -p "$data/journals/zez-server"
@@ -36,6 +38,8 @@ cat > "$data/journals/zez-server/2026-08-03.md" <<MD
 
 **Done**
 - 이식 완료
+
+<sub>cwd: \`/Users/x/Documents/braincrew/skt-agent-proj/zez-server\`</sub>
 MD
 printf '# 2026-08-03\n\n- 10:00 · [doc-console](../doc-console/2026-08-03.md) — SSO 세션 키\n' \
   > "$data/journals/_daily/2026-08-03.md"
@@ -70,9 +74,24 @@ assert_file_contains "$IDX" "2026-08-03" "index lists the date"
 assert_file_contains "$IDX" "SSO 세션 키 불일치" "index carries the title (pick targets without opening files)"
 # 폴더명이 고객명이 아니므로, 이름이 다른 프로젝트도 같은 기간 조회에 반드시 나와야 한다
 assert_file_contains "$IDX" "zez-server" "differently-named project still listed for the period"
+# 고객 축은 cwd의 상위 디렉토리(워크스페이스)에서 나온다 — 폴더명이 못 하는 일
+assert_file_contains "$IDX" "| skt-agent-proj |" "workspace column carries the client-ish axis"
 # 여러 프로젝트에 걸친 한 세션은 같은 세션 열로 식별된다 (실적 이중 계상 방지)
 assert_eq "$(grep -c "${SID:0:8}" "$IDX")" "2" "one session across two projects is identifiable"
 grep -q "비밀 프로젝트\|personal" "$IDX" && fail "index excludes private" || pass "index excludes private"
+
+# 제목이 깨진 옛 기록(포맷 화이트리스트 이전)은 조용히 빠지지 말고 드러나야 한다
+mkdir -p "$data/journals/legacy-broken"
+cat > "$data/journals/legacy-broken/2026-08-02.md" <<MD
+# legacy-broken — 2026-08-02
+
+<!-- session:sess-broken -->
+You've reached your limit. Run /usage-credits to continue.
+\`legacy-broken\` · mac · 10:35 → 11:35
+MD
+bash "$SYNC" --all >/dev/null 2>&1
+assert_file_contains "$IDX" "legacy-broken" "corrupt entry surfaces instead of vanishing"
+assert_file_contains "$IDX" "기록 손상" "corrupt entry is labelled as such"
 
 # 4) author 디렉토리로 분리 (팀원 간 경합 없음)
 [ -d "$krepo/activity/hank" ] && pass "author-scoped directory" || fail "author-scoped directory"
