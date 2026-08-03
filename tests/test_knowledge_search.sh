@@ -1,86 +1,109 @@
 #!/usr/bin/env bash
-# [AC1] 검색 착지: /knowledge 스킬의 검색 절차(키워드 AND grep → OR 폴백)가
-# fixture 카드 코퍼스에서 golden query로 착지하는지 검증.
-# [AC2-negative] 단일 고객 이슈 키워드는 어떤 카드에도 착지하지 않아야 한다.
+# /knowledge 스킬이 기술한 조회 절차를 미러링해 검증한다.
+# 스킬은 LLM 프로즈라 직접 실행할 수 없으므로, SKILL.md의 절차를 바꾸면
+# 이 파일의 함수도 함께 갱신할 것.
+#   ① 활동 조회 (누가 뭐 했나 / 어디까지)   ② 카드 검색   ③ 카드 0건 → 활동 폴백
 set -uo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
 . "$HERE/helpers.sh"
 
-repo="$(mktemp -d)"; mkdir -p "$repo/cards"
+repo="$(mktemp -d)"; mkdir -p "$repo/cards" "$repo/activity/hank/doc-console" \
+  "$repo/activity/hank/_daily" "$repo/activity/jiwon/skt-hermes"
 
-cat > "$repo/cards/ocr-502-size-limit.md" <<'MD'
+# --- 카드 fixture ---
+cat > "$repo/cards/ocr-upstream-image-size-limit.md" <<'MD'
 ---
-tags: [ocr, http-502, image-size]
-sources: ["[SKT] 2026-07-14"]
+tags: [ocr, upstage, http-502, image-size]
+sources: ["hank · skt-hermes · 2026-07-14 · aaaa1111-bbbb-2222-cccc-333344445555"]
 ---
-# OCR 502 — 이미지 크기 제한과 배치 부하
+# 1MB 초과 이미지를 OCR 업스트림(Upstage)에 보내면 즉시 502
 
 ## 문제상황
-1MB 초과 이미지 업로드 시 OCR 업스트림이 즉시 502 반환
+대용량 스캔 문서 세트가 전건 502
+## 검증 상태
+검증됨 — 리사이즈 후 통과 확인
 ## 정리
-- 실패 입력의 크기/동시성 프로파일부터 본다
+- 실패 입력의 크기 프로파일부터 본다
 MD
-cat > "$repo/cards/fastapi-sync-blocking.md" <<'MD'
+cat > "$repo/cards/flask-secret-key-mismatch.md" <<'MD'
 ---
-tags: [fastapi, asyncio, blocking]
-sources: ["[DISC] 2026-07-16"]
+tags: [flask, session, secret-key, sso]
+sources: ["hank · doc-console · 2026-07-29 · d8c3e962-707b-40e4-a7ca-94f556801c36"]
 ---
-# async 핸들러 안의 sync 코드가 전체 API를 세움
+# 세션 쿠키는 도달하는데 로그인이 안 풀린다 — 서명 키 불일치
 
-## 문제상황
-느린 엔드포인트 하나로 다른 요청까지 밀리는 head-of-line blocking
+## 검증 상태
+검증됨
 ## 정리
-- 워커 수가 아니라 아키텍처(큐/분리)로 푼다
-MD
-cat > "$repo/cards/cloud-egress-allowlist.md" <<'MD'
----
-tags: [cloud, egress, http-403, allowlist]
-sources: ["[WIKI] 2026-07-17"]
----
-# 클라우드 루틴의 외부 도메인 403 — egress allowlist 미포함
-
-## 문제상황
-클라우드 환경에서 arxiv 다운로드가 403으로 차단
-## 정리
-- Network access를 Custom으로 바꾸고 도메인 허용
+- 다중 서버 세션은 서명 키 대조를 최우선으로
 MD
 
-# SKILL.md의 검색 절차를 "미러링"(재현)한다 — 스킬은 LLM 프로즈라 직접 실행
-# 불가하므로, SKILL.md의 AND→OR 전략을 수정하면 이 함수도 함께 갱신할 것.
-search() { # search <kw1> [kw2...] → 매치 파일명 출력
-  local files; files=$(ls "$repo/cards"/*.md)
-  local kw
-  for kw in "$@"; do
-    files=$(echo "$files" | xargs grep -lie "$kw" 2>/dev/null)
-    [ -z "$files" ] && break
-  done
-  if [ -z "$files" ]; then # OR 폴백
-    local args=(); for kw in "$@"; do args+=(-e "$kw"); done
-    files=$(ls "$repo/cards"/*.md | xargs grep -li "${args[@]}" 2>/dev/null)
-  fi
-  echo "$files"
-}
+# --- 활동 fixture ---
+cat > "$repo/activity/hank/_daily/2026-08-03.md" <<'MD'
+# 2026-08-03
 
-# golden query 1: 직접 키워드
-r=$(search "ocr" "502")
-assert_contains "$r" "ocr-502-size-limit" "golden: 'OCR 502' lands"
-# golden query 2: 패러프레이즈 (증상 말투)
-r=$(search "이미지" "502")
-assert_contains "$r" "ocr-502-size-limit" "golden: '이미지 502' paraphrase lands"
-# golden query 3: 동시성 증상
-r=$(search "밀리" "blocking")
-assert_contains "$r" "fastapi-sync-blocking" "golden: 'FastAPI 밀림' lands"
-# golden query 4: egress 미언급 패러프레이즈
-r=$(search "클라우드" "차단")
-assert_contains "$r" "cloud-egress-allowlist" "golden: '클라우드 차단' paraphrase lands"
-# golden query 5: 태그 경유
-r=$(search "allowlist")
-assert_contains "$r" "cloud-egress-allowlist" "golden: tag keyword lands"
+- 10:20 · [doc-console](../doc-console/2026-08-03.md) — SSO next 파라미터 지원 추가
+MD
+cat > "$repo/activity/hank/doc-console/2026-08-02.md" <<'MD'
+# doc-console — 2026-08-02
 
-# [AC2] negative: 단일 고객 이슈 키워드 — 카드 코퍼스에 존재하지 않아야 함
-r=$(search "복지온")
-[ -z "$r" ] && pass "negative: client-specific keyword lands nowhere" \
-             || fail "negative: client-specific keyword lands nowhere (got: $r)"
+### 게이트웨이 로그인 원인 규명
+**Done**
+- 후보 8건 순차 소거로 FLASK_SECRET_KEY 불일치 확정
+**Next**
+- Auth Flask에 next 파라미터 지원 추가
+MD
+cat > "$repo/activity/hank/doc-console/2026-08-03.md" <<'MD'
+# doc-console — 2026-08-03
+
+### SSO next 파라미터 지원 추가
+**Done**
+- /login에서 세션 저장, 콜백에서 복귀 구현
+- 열린 리다이렉트 차단 포함
+**Next**
+- Auth Flask 재시작 후 런타임 검증
+MD
+cat > "$repo/activity/jiwon/skt-hermes/2026-08-03.md" <<'MD'
+# skt-hermes — 2026-08-03
+
+### Kafka 컨슈머 랙 조사
+**Done**
+- 파티션 리밸런싱 주기 확인
+MD
+
+# --- 스킬 절차 미러 ---
+people() { ls "$repo/activity"; }
+daily()  { cat "$repo/activity/$1/_daily/$2.md" 2>/dev/null; }
+history(){ ls "$repo/activity/$1/$2/" 2>/dev/null; }
+cards()  { local f; f=$(ls "$repo/cards"/*.md)
+  for kw in "$@"; do f=$(echo "$f"|xargs grep -lie "$kw" 2>/dev/null); [ -z "$f" ]&&break; done
+  [ -z "$f" ] && { local a=(); for kw in "$@"; do a+=(-e "$kw"); done
+    f=$(ls "$repo/cards"/*.md|xargs grep -li "${a[@]}" 2>/dev/null); }
+  echo "$f"|xargs -n1 basename 2>/dev/null|tr '\n' ' '; }
+act_fallback(){ grep -rile "$1" "$repo/activity" 2>/dev/null|xargs -n1 basename 2>/dev/null|tr '\n' ' '; }
+
+# ① 요구사항 1 — "누가 오늘 뭐 했나"
+assert_contains "$(people)" "hank" "team member list discoverable"
+assert_contains "$(daily hank 2026-08-03)" "SSO next 파라미터" "today's cross-project summary readable"
+
+# ② 요구사항 2 — "A가 어디까지 진행했나" (날짜순 이력 + 마지막 Next)
+h=$(history hank doc-console)
+assert_contains "$h" "2026-08-02" "project history lists earlier date"
+assert_contains "$h" "2026-08-03" "project history lists latest date"
+latest=$(cat "$repo/activity/hank/doc-console/2026-08-03.md")
+assert_contains "$latest" "Next" "latest entry carries remaining work"
+assert_contains "$latest" "재시작 후 런타임 검증" "remaining work is specific"
+
+# ③ 요구사항 3 — 기술 질의 (직접 키워드 / 벤더명 / 패러프레이즈)
+assert_contains "$(cards ocr 502)" "ocr-upstream-image-size-limit" "tech query lands"
+assert_contains "$(cards upstage)" "ocr-upstream-image-size-limit" "vendor-name query lands"
+assert_contains "$(cards 세션 secret_key)" "flask-secret-key-mismatch" "paraphrase query lands"
+# 카드가 sources로 사람·프로젝트까지 알려준다
+assert_file_contains "$repo/cards/flask-secret-key-mismatch.md" "hank · doc-console" "card attributes author/project"
+
+# ④ 카드에 없는 주제 → 활동 폴백으로 건짐
+assert_eq "$(cards kafka)" "" "no card for kafka"
+assert_contains "$(act_fallback kafka)" "2026-08-03" "activity fallback finds uncarded work"
 
 finish

@@ -28,6 +28,32 @@ assert_file_contains "$data/journals/demo/2026-06-29.md" "테스트 작업" "wor
 assert_file_contains "$data/journals/_daily/2026-06-29.md" "demo" "daily index updated"
 ( cd "$data" && git log --oneline | grep -q demo ) && pass "work committed" || fail "work committed"
 
+# 한 세션이 프로젝트를 넘나들어도 _daily는 둘 다 유지한다.
+# (세션 ID만으로 키를 잡던 시절엔 뒤 항목이 앞 항목을 덮어써서, 실측 22일 중 9일의
+#  기록이 조용히 사라졌다. 키는 (세션, 프로젝트)여야 한다.)
+python3 - "$WORK_JOURNAL_CONFIG" <<'PY'
+import json, sys
+p = sys.argv[1]; c = json.load(open(p))
+c["rules"].append({"prefix": "/tmp/wj-work2", "category": "work", "project": "other-proj"})
+json.dump(c, open(p, "w"))
+PY
+echo "$SUMMARY" | bash "$ROOT/scripts/core/write-entry.sh" sess-1 2026-06-29 mac /tmp/wj-work2/x 10:30
+daily="$data/journals/_daily/2026-06-29.md"
+assert_file_contains "$daily" "other-proj" "same session, second project recorded"
+assert_file_contains "$daily" "](../demo/" "same session, first project NOT overwritten"
+assert_eq "$(grep -c '^- ' "$daily")" "2" "one line per (session, project)"
+# 같은 (세션, 프로젝트) 재실행은 여전히 멱등
+echo "$SUMMARY" | bash "$ROOT/scripts/core/write-entry.sh" sess-1 2026-06-29 mac /tmp/wj-work2/x 10:35
+assert_eq "$(grep -c '^- ' "$daily")" "2" "re-running the same pair stays idempotent"
+
+# 구 포맷(세션만 키) 항목은 다음 쓰기 때 자동 승격된다 — 중복 라인이 생기면 안 된다
+legacy="$data/journals/_daily/2026-06-28.md"
+mkdir -p "$(dirname "$legacy")"
+printf '# 2026-06-28\n\n<!-- session:sess-9 -->\n- 09:00 · [demo](../demo/2026-06-28.md) — 옛 항목\n' > "$legacy"
+echo "$SUMMARY" | bash "$ROOT/scripts/core/write-entry.sh" sess-9 2026-06-28 mac /tmp/wj-work/x 09:30
+assert_eq "$(grep -c '^- ' "$legacy")" "1" "legacy marker upgraded in place, not duplicated"
+assert_file_contains "$legacy" "session:sess-9:demo" "legacy marker now carries the project"
+
 # private → private/<project>/, no daily index
 echo "$SUMMARY" | bash "$ROOT/scripts/core/write-entry.sh" sess-2 2026-06-29 mac /tmp/other/y 11:00
 ls "$data"/private/*/2026-06-29.md >/dev/null 2>&1 && pass "private entry written" || fail "private entry written"

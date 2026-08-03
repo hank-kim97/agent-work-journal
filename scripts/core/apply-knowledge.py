@@ -37,14 +37,13 @@ import re
 import sys
 from pathlib import Path
 
-# --- mechanical PII defense (spec: "LLM 익명화 + 금지패턴 regex 이중 방어") ------
-# The prompt-level anonymization is layer 1 (non-deterministic). This is the
-# SINGLE deterministic layer 2 (the shell no longer duplicates it), applied to
-# every card/append/excluded body right before it is written.
-#   - SECRET patterns: fail-closed — reject the whole run (exit 3). Broad
-#     coverage per security review: vendor key formats, JWT, PEM, credential
-#     URIs, and generic key/token/password assignments.
-#   - ID/IP/email/URL patterns: redact in place ([REDACTED-*]) and continue.
+# --- credential gate -----------------------------------------------------------
+# This repo is an INTERNAL team log: client names, hostnames, IPs, employee ids
+# and author attribution are deliberately kept — they are what makes a card
+# actionable for the next person on that system. So there is no PII redaction.
+#
+# Credentials are different: an API key committed to git history cannot be
+# recalled, internal repo or not. Secrets fail the run closed (exit 3).
 SECRET_RE = re.compile(
     r"""(?x)(
         (?<![A-Za-z0-9])sk-ant-[A-Za-z0-9_-]{6,}          # Anthropic
@@ -66,41 +65,10 @@ SECRET_RE = re.compile(
 )
 
 
-def _redact_id(m: re.Match) -> str:
-    """6-8 digit standalone numbers are employee-id shaped; keep only tokens
-    that are genuine YYYYMMDD dates. 5-digit numbers stay (ports like 50051
-    are common in cards) — documented residual risk for 5-digit ids."""
-    tok = m.group(0)
-    if len(tok) == 8:
-        y, mo, d = int(tok[:4]), int(tok[4:6]), int(tok[6:8])
-        if 1990 <= y <= 2039 and 1 <= mo <= 12 and 1 <= d <= 31:
-            return tok  # genuine calendar date
-    return "[REDACTED-ID]"
-
-
-REDACT_RES = [
-    (re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b"), "[REDACTED-EMAIL]"),
-    # Internal hosts only. `localhost` is deliberately NOT matched: it reveals
-    # nothing about internal infra and appears in reproduction snippets whose
-    # whole point is the URL (scheme/port) — redacting it destroyed a card's
-    # teaching value. Credentials inside such URLs are still caught by SECRET_RE.
-    (re.compile(
-        r"https?://(?:[\w.-]+\.(?:internal|corp|local|intra)\b|\d{1,3}(?:\.\d{1,3}){3})[^\s)\]]*"
-    ), "[REDACTED-URL]"),
-    (re.compile(r"\b(?:10|172\.(?:1[6-9]|2\d|3[01])|192\.168|100\.64)(?:\.\d{1,3}){2,3}\b"), "[REDACTED-IP]"),
-    (re.compile(r"\bpageId=\d+\b"), "[REDACTED-PAGEID]"),
-    (re.compile(r"\b\d{6,8}\b"), _redact_id),
-]
-
-
-def scrub_pii(text: str) -> tuple[str, bool]:
-    """Return (scrubbed_text, has_secret). Secrets are never scrubbed — caller
-    must fail closed so a leaked key never lands in the shared repo."""
-    if SECRET_RE.search(text):
-        return text, True
-    for rx, repl in REDACT_RES:
-        text = rx.sub(repl, text)
-    return text, False
+def has_secret(text: str) -> bool:
+    """True when a credential-shaped token is present. Caller fails closed so a
+    leaked key never lands in git history."""
+    return SECRET_RE.search(text) is not None
 
 
 CARD_RE = re.compile(
@@ -210,21 +178,15 @@ def main() -> int:
         print("apply-knowledge: unrecognized extractor output (no markers)", file=sys.stderr)
         return 2
 
-    # layer-2 PII defense: fail closed on secrets, redact IDs/IPs in place
-    scrubbed_cards, scrubbed_appends = [], []
+    # credential gate: fail closed, never log the offending content
     for slug, body in new_cards:
-        body, has_secret = scrub_pii(body)
-        if has_secret:
+        if has_secret(body):
             print(f"apply-knowledge: SECRET pattern in card '{slug}' — run rejected", file=sys.stderr)
             return 3
-        scrubbed_cards.append((slug, body))
     for slug, block in appends:
-        block, has_secret = scrub_pii(block)
-        if has_secret:
+        if has_secret(block):
             print(f"apply-knowledge: SECRET pattern in append '{slug}' — run rejected", file=sys.stderr)
             return 3
-        scrubbed_appends.append((slug, block))
-    new_cards, appends = scrubbed_cards, scrubbed_appends
 
     created, merged, skipped = [], [], []
 
@@ -267,10 +229,9 @@ def main() -> int:
         # excluded.md is committed too — scrub it like cards (architect rec #1).
         # Audit text differs from cards: a secret here shouldn't kill the run
         # (cards already passed), so redact instead of fail-closed.
-        ex_text, ex_secret = scrub_pii(excluded_m.group(1).strip())
-        if ex_secret:
-            ex_text = SECRET_RE.sub("[REDACTED-SECRET]", ex_text)
-            ex_text, _ = scrub_pii(ex_text)
+        # audit text: a stray secret here shouldn't kill a run whose cards
+        # already passed — mask just the secret and keep the entry.
+        ex_text = SECRET_RE.sub("[REDACTED-SECRET]", excluded_m.group(1).strip())
         ex = repo / "excluded.md"
         header = "# 추출 제외 목록 (경계 규칙 감사 추적)\n" if not ex.exists() else ex.read_text(encoding="utf-8")
         ex.write_text(header.rstrip() + f"\n\n## {date}\n{ex_text}\n", encoding="utf-8")

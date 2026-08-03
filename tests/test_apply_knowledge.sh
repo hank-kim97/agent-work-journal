@@ -80,17 +80,17 @@ assert_eq "$(ls "$repo/cards" | wc -l | tr -d ' ')" "$before" "no-op leaves card
 printf 'API Error: Connection closed\n' | python3 "$APPLY" "$repo" 2>/dev/null
 assert_eq "$?" "2" "garbage output rejected with exit 2"
 
-# 7) [AC3] PII layer-2: 사번·내부IP는 REDACT, 날짜형 8자리는 보존
+# 7) 내부용 레포: 사번·내부IP·호스트·pageId는 그대로 보존해야 한다 (리댁션 없음)
 python3 "$APPLY" "$repo" --date 2026-08-18 <<'RAW'
-=== CARD START: pii-redact-case ===
+=== CARD START: internal-detail-preserved ===
 ---
 tags: [test]
-sources: ["[SKT] 2026-08-18"]
+sources: ["hank · doc-console · 2026-08-18 · d8c3e962-707b-40e4-a7ca-94f556801c36"]
 ---
-# 익명화 2차 방어 테스트
+# 내부 식별정보 보존 테스트
 
 ## 문제상황
-사번 1109421 계정이 서버 10.20.30.40 과 100.64.50.171 에서 pageId=1008094635 조회 실패. 파일명 20260502_190011.jpg
+사번 1109421 계정이 서버 10.20.30.40 과 100.64.50.171 에서 pageId=1008094635 조회 실패. 담당 kim@brain-crew.com, 내부 위키 https://wiki.corp.local/page
 ## 시도
 x
 ## 해결
@@ -99,14 +99,17 @@ y
 z
 === CARD END ===
 RAW
-assert_eq "$?" "0" "pii card applies with redaction"
-card="$repo/cards/pii-redact-case.md"
-assert_file_contains "$card" "[REDACTED-ID]" "employee id redacted"
-assert_file_contains "$card" "[REDACTED-IP]" "internal ip redacted"
-assert_file_contains "$card" "[REDACTED-PAGEID]" "pageId redacted"
-grep -q "1109421" "$card" && fail "raw employee id absent" || pass "raw employee id absent"
-grep -q "10.20.30.40" "$card" && fail "raw ip absent" || pass "raw ip absent"
-assert_file_contains "$card" "20260502_190011.jpg" "date-like digits preserved (no false redact)"
+assert_eq "$?" "0" "internal-detail card applies"
+card="$repo/cards/internal-detail-preserved.md"
+assert_file_contains "$card" "1109421" "employee id preserved"
+assert_file_contains "$card" "100.64.50.171" "internal ip preserved"
+assert_file_contains "$card" "pageId=1008094635" "pageId preserved"
+assert_file_contains "$card" "kim@brain-crew.com" "email preserved"
+assert_file_contains "$card" "https://wiki.corp.local/page" "internal url preserved"
+grep -q "REDACTED" "$card" && fail "no redaction markers" || pass "no redaction markers"
+# 추적성: sources에 author·project·session이 담긴다
+assert_file_contains "$card" "hank · doc-console" "sources carries author and project"
+assert_file_contains "$card" "d8c3e962-707b-40e4-a7ca-94f556801c36" "sources carries session id"
 
 # 8) [AC3] 시크릿 패턴 → fail-closed (exit 3, 카드 미기록)
 python3 "$APPLY" "$repo" --date 2026-08-18 2>/dev/null <<'RAW'
@@ -130,16 +133,16 @@ RAW
 assert_eq "$?" "3" "secret pattern fails closed with exit 3"
 [ ! -f "$repo/cards/secret-leak-case.md" ] && pass "secret card not written" || fail "secret card not written"
 
-# 9) [AC3] excluded.md도 스크럽 (감사 텍스트의 사번·시크릿은 REDACT — run은 유지)
+# 9) excluded.md: 시크릿만 마스킹, 나머지는 보존 (run은 유지)
 python3 "$APPLY" "$repo" --date 2026-08-25 <<'RAW'
 NO NEW KNOWLEDGE
 === EXCLUDED ===
-- 사번 7654321 계정의 고객 GW 이슈 (키 sk-ant-leak999): 단일 고객
+- 사번 7654321 채용 후보 검증 (키 sk-ant-leak999 언급): 비기술 판단
 RAW
-assert_eq "$?" "0" "excluded-only with pii still exits 0"
-assert_file_contains "$repo/excluded.md" "[REDACTED-ID]" "excluded employee id redacted"
-assert_file_contains "$repo/excluded.md" "[REDACTED-SECRET]" "excluded secret redacted"
-grep -q "7654321\|sk-ant-leak999" "$repo/excluded.md" && fail "raw pii absent from excluded.md" || pass "raw pii absent from excluded.md"
+assert_eq "$?" "0" "excluded-only exits 0"
+assert_file_contains "$repo/excluded.md" "7654321" "excluded keeps internal detail"
+assert_file_contains "$repo/excluded.md" "[REDACTED-SECRET]" "excluded secret masked"
+grep -q "sk-ant-leak999" "$repo/excluded.md" && fail "raw secret absent from excluded.md" || pass "raw secret absent from excluded.md"
 
 # 10) [AC3] security 리뷰 확인 우회 문자열 → 전부 fail-closed (회귀 고정)
 for secret in \
@@ -193,17 +196,17 @@ RAW
 assert_eq "$?" "0" "common sk- substrings do not fail closed (R1)"
 assert_file_contains "$repo/cards/sk-substring-fp.md" "task-management-service-deployment-v2" "identifiers preserved intact"
 
-# 11) [AC3] 연도형 사번 리댁션 + 이메일·내부URL + 진짜 날짜 보존
+# 11) 재현 스니펫·식별자 전량 보존 (카드 가치의 핵심)
 python3 "$APPLY" "$repo" --date 2026-09-01 <<'RAW'
-=== CARD START: pii-round2 ===
+=== CARD START: repro-detail-preserved ===
 ---
 tags: [test]
-sources: ["[X] 2026-09-01"]
+sources: ["hank · edge · 2026-09-01 · 11111111-2222-3333-4444-555555555555"]
 ---
-# 2차 리댁션 검증
+# 재현 디테일 보존 검증
 
 ## 문제상황
-입사연도형 사번 20180042 계정, 담당자 kim@brain-crew.com, 내부 위키 https://wiki.corp.local/page 참조. 처리일 20260714, 공개 문서 https://github.com/org/repo 참고. 로컬 재현 Location: http://localhost:15000/prefix
+입사연도형 사번 20180042 계정, 처리일 20260714, 로컬 재현 Location: http://localhost:15000/prefix, 게이트웨이 https://dev-iscz.example.com:8007/c-console/
 ## 시도
 x
 ## 해결
@@ -212,13 +215,11 @@ y
 z
 === CARD END ===
 RAW
-card2="$repo/cards/pii-round2.md"
-grep -q "20180042" "$card2" && fail "join-year employee id redacted" || pass "join-year employee id redacted"
-assert_file_contains "$card2" "[REDACTED-EMAIL]" "email redacted"
-assert_file_contains "$card2" "[REDACTED-URL]" "internal url redacted"
-assert_file_contains "$card2" "20260714" "genuine YYYYMMDD date preserved"
-assert_file_contains "$card2" "https://github.com/org/repo" "public url preserved"
-# localhost은 내부 정보가 아니고 재현 스니펫의 핵심이므로 보존해야 한다 (과잉 리댁션 방지)
+card2="$repo/cards/repro-detail-preserved.md"
+assert_file_contains "$card2" "20180042" "employee id preserved"
+assert_file_contains "$card2" "20260714" "date preserved"
 assert_file_contains "$card2" "http://localhost:15000/prefix" "localhost repro url preserved"
+assert_file_contains "$card2" "https://dev-iscz.example.com:8007/c-console/" "gateway url preserved"
+grep -q "REDACTED" "$card2" && fail "no redaction in repro card" || pass "no redaction in repro card"
 
 finish

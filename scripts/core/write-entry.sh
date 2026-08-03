@@ -47,6 +47,12 @@ if [ -n "$DAILY_INDEX" ]; then
     "$DAILY_INDEX" "$PROJECT" "$SESSION_ID" "$DATE" "$TIME" "$TITLE_LINE"
 fi
 
+# Mirror work entries to the team repo (no-op unless knowledge_repo is set).
+# Backgrounded: the hook path must not wait on git.
+if [ "$CATEGORY" = "work" ]; then
+  ( bash "$CORE_DIR/sync-activity.sh" >/dev/null 2>&1 & )
+fi
+
 if [ "$CATEGORY" = "work" ] && [ -d "$JOURNAL_DIR/.git" ]; then
   ( cd "$JOURNAL_DIR" || exit 0
     git add journals/ 2>/dev/null
