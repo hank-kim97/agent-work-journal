@@ -194,4 +194,39 @@ KNOWLEDGE_LLM_CMD="$MOCKD/fallback" bash "$EXTRACT" >/dev/null 2>&1
 assert_eq "$?" "0" "missing transcript degrades gracefully"
 assert_file_contains "$krepo/cards/fallback-card.md" "폴백 카드" "card still produced from journal"
 
+# 11) 같은 실행 안에서 앞선 세션이 만든 카드가 다음 세션 프롬프트에 보여야 한다
+#     (안 보이면 같은 원인이 세션마다 새 슬러그로 중복 생성된다 — 실측 45장 중 16장)
+sleep 1; printf -- '- 중복 방지 검증\n' >> "$data/journals/demo/2026-07-20.md"
+SID2=bbbbbbbb-1111-2222-3333-444444444444
+cat > "$MOCKD/triage.two" <<EOF
+=== SESSION: $SID ===
+project: demo
+date: 2026-07-20
+topics: 첫 세션 주제
+keywords: OCR 502
+deep: no
+=== END SESSION ===
+=== SESSION: $SID2 ===
+project: demo
+date: 2026-07-20
+topics: 둘째 세션 주제
+keywords: OCR 502
+deep: no
+=== END SESSION ===
+EOF
+cat > "$MOCKD/two" <<EOF
+#!/usr/bin/env bash
+p=\$(cat)
+case "\$p" in
+  *"지식 추출 **분류자**"*) cat "$MOCKD/triage.two" ;;
+  *"$SID2"*) printf '%s\n' "\$p" > "$MOCKD/second-prompt.txt"; echo "NO NEW KNOWLEDGE" ;;
+  *) cat "$MOCKD/card.ok" ;;
+esac
+EOF
+chmod +x "$MOCKD/two"
+rm -f "$MOCKD/second-prompt.txt"
+KNOWLEDGE_LLM_CMD="$MOCKD/two" bash "$EXTRACT" >/dev/null 2>&1
+assert_file_contains "$MOCKD/second-prompt.txt" "이번 실행에서 방금 작성된 카드" "in-run card list reaches the next session"
+assert_file_contains "$MOCKD/second-prompt.txt" "ocr-502-size" "the earlier session's slug is visible for APPEND"
+
 finish

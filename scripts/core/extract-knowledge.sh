@@ -240,6 +240,20 @@ $TRUST_FENCE
 ## 기존 카드 목록
 PROMPT
   if [ -f "$KREPO/INDEX.md" ]; then cat "$KREPO/INDEX.md"; else echo "(아직 없음)"; fi
+  # Cards written by EARLIER SESSIONS IN THIS SAME RUN. They are not in INDEX.md
+  # yet (apply runs once, after the loop), so without this each session mints a
+  # fresh slug for a cause an earlier one already covered — measured on a 30-
+  # journal backlog: 16 of 45 cards were duplicates across 6 causes.
+  if [ -s "$RAW" ]; then
+    printf '\n### 이번 실행에서 방금 작성된 카드 (같은 원인이면 새 카드 대신 여기에 APPEND)\n'
+    python3 - "$RAW" <<'PY'
+import re, sys
+t = open(sys.argv[1], encoding="utf-8", errors="replace").read()
+for m in re.finditer(r"^=== CARD START: (.+?) ===\n(.*?)^=== CARD END ===", t, re.S | re.M):
+    title = re.search(r"^# (.+)$", m.group(2), re.M)
+    print(f"- {m.group(1).strip()}: {title.group(1).strip() if title else ''}")
+PY
+  fi
   printf '\n## 세션 자료\n'
   cat "$EVID"
   } > "$WORK/card-$SID.md"
