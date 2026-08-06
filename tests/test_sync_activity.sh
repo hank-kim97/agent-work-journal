@@ -69,7 +69,7 @@ assert_file_contains "$krepo/activity/hank/_daily/2026-08-03.md" "doc-console" "
 grep -rq "비밀 프로젝트" "$krepo/activity" 2>/dev/null && fail "private content absent" || pass "private content absent"
 
 # 3b) activity/INDEX.md — 기간 전수 열람이 싸야 리포트에서 누락이 안 난다
-IDX="$krepo/activity/INDEX.md"
+IDX="$krepo/activity/hank/INDEX.md"
 assert_file_contains "$IDX" "2026-08-03" "index lists the date"
 assert_file_contains "$IDX" "SSO 세션 키 불일치" "index carries the title (pick targets without opening files)"
 # 폴더명이 고객명이 아니므로, 이름이 다른 프로젝트도 같은 기간 조회에 반드시 나와야 한다
@@ -115,5 +115,44 @@ JSON
 cd "$data" && bash "$SYNC" --all >/dev/null 2>&1; cd - >/dev/null
 [ -d "$krepo/activity/fallback-user" ] && pass "author falls back to git user.name" \
   || pass "author fallback (git user.name unavailable — skipped)"
+
+# 8) [다중 멤버] 인덱스는 사람별이라 서로의 파일을 건드리지 않는다
+#    (팀 공용 1개였을 때는 매 sync가 파일 전체를 새로 써서 rebase가 상시 충돌했다)
+# 앞 테스트가 author를 바꿔놨으므로 hank로 되돌린 뒤 검증한다
+cat >"$WORK_JOURNAL_CONFIG" <<JSON
+{"journal_dir": "$data", "knowledge_repo": "$krepo", "author": "hank", "rules": [], "default": "private"}
+JSON
+other="$krepo/activity/jiwon"
+mkdir -p "$other/skt-hermes"
+cat > "$other/skt-hermes/2026-08-03.md" <<MD
+# skt-hermes — 2026-08-03
+
+<!-- session:sess-jiwon -->
+### Kafka 컨슈머 랙 조사
+\`skt-hermes\` · mac · 14:00 → 15:00
+
+**Done**
+- 리밸런싱 주기 확인
+MD
+# jiwon이 자기 sync에서 만들어 둔 인덱스 (이 멤버가 절대 건드리면 안 되는 파일)
+printf '# 활동 인덱스 — jiwon\n\n| 날짜 | 시각 | 사람 | 워크스페이스 | 프로젝트 | 제목 | 세션 |\n|---|---|---|---|---|---|---|\n| 2026-08-03 | 15:00 | jiwon |  | [skt-hermes](./skt-hermes/2026-08-03.md) | Kafka 컨슈머 랙 조사 | `sess-jiw` |\n' > "$other/INDEX.md"
+before=$(md5 -q "$other/INDEX.md")
+bash "$SYNC" --all >/dev/null 2>&1
+assert_eq "$(md5 -q "$other/INDEX.md")" "$before" "another member's index is never rewritten"
+grep -q "jiwon" "$IDX" && fail "own index excludes other members" || pass "own index excludes other members"
+[ ! -f "$krepo/activity/INDEX.md" ] && pass "no shared team-wide index to conflict on" \
+  || fail "no shared team-wide index to conflict on"
+# 팀 전체 조회는 glob 한 번으로 여전히 가능해야 한다
+assert_contains "$(grep -h '2026-08-03' "$krepo"/activity/*/INDEX.md)" "Kafka" "team-wide grep still finds every member"
+
+# 9) 미완 rebase면 커밋하지 않고 멈춘다 (조용한 상태 오염 방지)
+mkdir -p "$krepo/.git/rebase-merge"
+sleep 1; printf -- '- 추가\n' >> "$data/journals/doc-console/2026-08-03.md"
+c_before=$(git -C "$krepo" rev-list --count HEAD)
+out=$(bash "$SYNC" --all 2>&1); rc=$?
+rmdir "$krepo/.git/rebase-merge"
+assert_eq "$rc" "1" "unfinished rebase makes sync exit non-zero"
+assert_contains "$out" "unfinished rebase" "unfinished rebase is reported, not silent"
+assert_eq "$(git -C "$krepo" rev-list --count HEAD)" "$c_before" "no commit on top of a broken rebase"
 
 finish

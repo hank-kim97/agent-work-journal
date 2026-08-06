@@ -29,7 +29,7 @@
 |---|---|
 | `install-knowledge.sh` | opt-in 설치기 — config 기록, 레포 스캐폴드, `/bc-knowledge` 스킬 설치 |
 | `scripts/core/sync-activity.sh` | 일지 → `activity/` 미러 (LLM 없음, 증분, 시간당 1회 push) |
-| `scripts/core/build-activity-index.py` | `activity/INDEX.md` 재생성 (기간 전수 열람용) |
+| `scripts/core/build-activity-index.py` | `activity/<사람>/INDEX.md` 재생성 (기간 전수 열람용) |
 | `scripts/core/rebuild-daily-index.py` | 유지보수 — `_daily`를 프로젝트 일지에서 재생성 |
 | `scripts/core/extract-knowledge.sh` | 주간 지식 추출 배치 — **2단계** (triage → 세션별 카드) |
 | `scripts/core/filter-transcript.py` | 세션 트랜스크립트(수십 MB)를 근거 60KB로 압축 |
@@ -38,13 +38,19 @@
 
 ## 설치
 
+팀원 온보딩은 `setup-team-member.sh` 한 번으로 끝납니다 (config 배선 → 훅 → 개인 레포 init → 팀 레포 clone → 스킬 설치 → **주간 추출 스케줄 등록**):
+
 ```bash
-bash install-knowledge.sh --repo ~/re-team-work-log
-git -C ~/re-team-work-log remote add origin <팀 공용 레포 URL>   # 팀 공유 시
-bash scripts/core/sync-activity.sh --all                        # 기존 일지 백필
+bash setup-team-member.sh --work-prefix ~/Documents/braincrew \
+  --knowledge-remote <팀 공용 레포 URL>
+bash scripts/core/sync-activity.sh --all      # 기존 일지가 있으면 백필
 ```
 
-주간 추출은 자동 등록하지 않습니다 — **수동** / **launchd**(macOS 주 1회) / **cloud 루틴** 중 선택.
+주간 추출은 **기본으로 등록됩니다**(macOS launchd, 10:20). 등록하지 않으면 활동만 쌓이고 카드는 영원히 생기지 않기 때문입니다 — 실제로 그 상태로 13일이 지나간 적이 있습니다. 원치 않으면 `--no-schedule`, macOS가 아니면 cron 명령을 안내합니다.
+
+요일은 사용자명 해시로 **월~금에 분산**됩니다. 같은 주에 두 멤버가 같은 문제를 각자 카드화하면 슬러그가 갈리는데, 요일을 벌려두면 뒤에 도는 사람이 앞사람 카드를 보고 APPEND합니다.
+
+레포만 연결하려면 `install-knowledge.sh --repo <path>`를 직접 써도 됩니다(스케줄은 안내만).
 
 ## activity 동기화 (요구사항 ①②)
 
@@ -55,13 +61,15 @@ bash scripts/core/sync-activity.sh --all                        # 기존 일지 
 - 일지 기록(`write-entry.sh`) 직후 백그라운드로 증분 실행. 커밋은 매번, **push는 시간당 최대 1회**(`.git/.activity-last-push`)로 스로틀
 - LLM을 쓰지 않습니다. 요약은 이미 일지에 있고, 미러링은 결정론적 작업입니다.
 
-### `activity/INDEX.md` — 폴더명은 고객이 아니다
+### 활동 인덱스 — 폴더명은 고객이 아니다
 
-`sync-activity.sh`가 매 실행마다 `activity/INDEX.md`를 재생성합니다: **(날짜 · 시각 · 사람 · 프로젝트 · 제목 · 세션ID) 한 줄씩.**
+`sync-activity.sh`가 매 실행마다 **자기 몫의** `activity/<사람>/INDEX.md`를 재생성합니다: **(날짜 · 시각 · 사람 · 워크스페이스 · 프로젝트 · 제목 · 세션ID) 한 줄씩.**
+
+**사람별로 쪼갠 이유는 다중 멤버 충돌입니다.** 이 파일은 매 sync마다 통째로 새로 쓰이므로, 팀 공용 1개였다면 두 멤버의 쓰기가 같은 줄에서 부딪혀 팀 레포가 상시 rebase 충돌에 빠집니다. 각자 자기 샤드만 건드리면 재조정할 두 버전 자체가 생기지 않습니다. 조회 비용은 그대로입니다 — `grep '| 2026-07-' activity/*/INDEX.md` 한 번.
 
 있어야 하는 이유는 하나입니다. **디렉토리 이름은 작업 당시 cwd의 레포명이지 고객명이 아닙니다.** 실측 7월에 SKT 작업은 `zez-server`(11세션)·`agent-runtime`(4)에 `skt-*`(17)만큼 들어 있었고, `skt-*`로 필터하면 관련 파일 35개 중 17개만 잡히면서 **누락이 결과에 드러나지 않습니다** — 리포트가 완성된 것처럼 보입니다.
 
-해법은 더 똑똑한 필터가 아니라 **전수 열람을 싸게 만드는 것**입니다. 날짜 접두로 grep 한 번(`grep '| 2026-07-' INDEX.md`)이면 그 기간 전 세션이 제목과 함께 나오므로, 폴더명으로 추측하는 대신 제목을 보고 대상을 고른 뒤 필요한 파일만 엽니다.
+해법은 더 똑똑한 필터가 아니라 **전수 열람을 싸게 만드는 것**입니다. 날짜 접두로 grep 한 번(`grep '| 2026-07-' activity/*/INDEX.md`)이면 그 기간 전 세션이 제목과 함께 나오므로, 폴더명으로 추측하는 대신 제목을 보고 대상을 고른 뒤 필요한 파일만 엽니다.
 
 고객 축에 가장 가까운 신호는 **워크스페이스 열**입니다 — 일지 푸터의 `cwd:`에서 프로젝트 체크아웃을 담은 상위 디렉토리를 뽑습니다. 실측에서 `skt-*` 폴더 필터는 18건, `skt-agent-proj` 워크스페이스는 29건을 잡았습니다. 다만 힌트일 뿐입니다: 반대로 그 안에 무관한 작업이 섞이기도 하므로 최종 판단은 제목으로 합니다.
 

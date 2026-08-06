@@ -47,9 +47,19 @@ else
   )
 fi
 
-python3 "$CORE_DIR/build-activity-index.py" "$KNOWLEDGE_REPO" 2>/dev/null
+python3 "$CORE_DIR/build-activity-index.py" "$KNOWLEDGE_REPO" "$AUTHOR" 2>/dev/null
 
 cd "$KNOWLEDGE_REPO" || exit 0
+
+# A half-finished rebase means an earlier sync hit a conflict and left the repo
+# mid-operation. Committing on top of that corrupts the state further, and every
+# later run would fail the same way in silence. Stop and say so instead.
+if [ -d .git/rebase-merge ] || [ -d .git/rebase-apply ]; then
+  echo "[sync-activity] ERROR: unfinished rebase in $KNOWLEDGE_REPO — resolve it" \
+       "(git rebase --continue | --abort); activity sync is paused until then"
+  exit 1
+fi
+
 git add activity/ 2>/dev/null
 git diff --cached --quiet 2>/dev/null && exit 0     # nothing changed
 
@@ -59,7 +69,12 @@ git -c commit.gpgsign=false commit -qm "activity: $AUTHOR $DATE $TIME" 2>/dev/nu
 if git remote get-url origin >/dev/null 2>&1; then
   SYNC_MARK=".git/.activity-last-push"
   if [ ! -f "$SYNC_MARK" ] || [ -n "$(find "$SYNC_MARK" -mmin +60 2>/dev/null)" ]; then
-    git pull --rebase --autostash >/dev/null 2>&1 || true
+    # Abort on conflict rather than leaving the repo mid-rebase: the next run
+    # would refuse to sync at all (guard above). Index shards are per-author so
+    # a genuine conflict here should be rare.
+    git pull --rebase --autostash >/dev/null 2>&1 \
+      || { git rebase --abort >/dev/null 2>&1
+           echo "[sync-activity] ERROR: pull --rebase failed — aborted, retrying next run"; }
     git push >/dev/null 2>&1 \
       || echo "[sync-activity] ERROR: push failed — committed locally, will retry"
     touch "$SYNC_MARK"

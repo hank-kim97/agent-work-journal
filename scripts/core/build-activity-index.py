@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Regenerate activity/INDEX.md — one row per (date, person, project, session).
+"""Regenerate activity/<person>/INDEX.md — a row per (date, project, session).
 
 Why this file exists: **a directory name is the cwd repo, not the client.** On a
 real month, SKT work lived in `zez-server` (11 sessions) and `agent-runtime` (4)
@@ -8,14 +8,24 @@ half the material and the gap is invisible in the result. Measured on a report
 dry-run: the directory filter found 17 of 35 relevant files.
 
 The fix is not a smarter filter, it is making *complete enumeration cheap*. One
-grep on a date prefix here lists every session in the period with its title, so
-the reader picks targets from titles instead of guessing from folder names, and
-opens only the files that matter.
+grep on a date prefix lists every session in the period with its title, so the
+reader picks targets from titles instead of guessing from folder names, and
+opens only the files that matter:
 
-The session id is included so the same session appearing under several projects
-is recognisable as one piece of work rather than counted several times.
+    grep '| 2026-07-' activity/*/INDEX.md
 
-Deterministic and fully regenerated each run. Usage: build-activity-index.py <repo>
+Why one index per person rather than one for the team: the file is rewritten
+whole on every sync, so a single shared index would put every member's writes on
+the same lines and make the team repo conflict constantly. Sharding by author
+means each member only ever touches their own file, and a rebase never has two
+versions to reconcile. The reader pays nothing — the glob above is one grep.
+
+For that guarantee to hold this must write ONLY the calling member's shard; it
+must never regenerate a shard from a possibly stale local copy of someone else's
+files.
+
+Deterministic and fully regenerated each run.
+Usage: build-activity-index.py <repo> <author>
 """
 from __future__ import annotations
 
@@ -56,19 +66,20 @@ def parse_entry(line1: str, line2: str) -> tuple[str, str]:
 
 
 def main() -> int:
-    if len(sys.argv) != 2:
-        print("usage: build-activity-index.py <knowledge_repo>", file=sys.stderr)
+    if len(sys.argv) != 3:
+        print("usage: build-activity-index.py <knowledge_repo> <author>", file=sys.stderr)
         return 2
     root = Path(sys.argv[1]) / "activity"
-    if not root.is_dir():
+    person = sys.argv[2]
+    mine = root / person
+    if not mine.is_dir():
         return 0
 
     rows: list[tuple[str, str, str, str, str, str, str]] = []
-    for f in root.glob("*/*/[0-9]*-*.md"):
+    for f in mine.glob("*/[0-9]*-*.md"):          # this member's shard only
         project = f.parent.name
         if project == "_daily" or not DATE_NAME.match(f.stem):
             continue
-        person = f.parent.parent.name
         text = f.read_text(encoding="utf-8", errors="replace")
         cwd_m = CWD_RE.search(text)
         ws = workspace_of(cwd_m.group(1), project) if cwd_m else ""
@@ -84,11 +95,12 @@ def main() -> int:
     rows.sort(key=lambda r: (r[0], r[1]), reverse=True)
 
     out = [
-        "# 활동 인덱스",
+        f"# 활동 인덱스 — {person}",
         "",
         "`sync-activity.sh`가 자동 생성한다 — 직접 편집하지 말 것.",
+        "이 파일은 이 사람의 활동만 담는다. **팀 전체를 볼 때는 사람별 인덱스를 함께 grep한다:**",
+        "`grep '| 2026-07-' activity/*/INDEX.md`",
         "",
-        "기간으로 좁힐 때는 날짜 접두로 grep한다: `grep '| 2026-07-' INDEX.md`.",
         "**프로젝트 이름은 작업 당시 cwd의 레포명이지 고객명이 아니다.** 고객 축에 가장 가까운 것은",
         "**워크스페이스** 열(프로젝트 체크아웃을 담은 상위 디렉토리)이다 — 실측에서 `skt-*` 폴더",
         "필터는 18건만 잡았지만 `skt-agent-proj` 워크스페이스는 29건을 잡았다.",
@@ -101,13 +113,13 @@ def main() -> int:
         "| 날짜 | 시각 | 사람 | 워크스페이스 | 프로젝트 | 제목 | 세션 |",
         "|---|---|---|---|---|---|---|",
     ]
-    for date, time, person, ws, project, sid, title in rows:
+    for date, time, who, ws, project, sid, title in rows:
         out.append(
-            f"| {date} | {time} | {person} | {ws} | "
-            f"[{project}](./{person}/{project}/{date}.md) | {title} | `{sid}` |"
+            f"| {date} | {time} | {who} | {ws} | "
+            f"[{project}](./{project}/{date}.md) | {title} | `{sid}` |"
         )
     out.append("")
-    (root / "INDEX.md").write_text("\n".join(out), encoding="utf-8")
+    (mine / "INDEX.md").write_text("\n".join(out), encoding="utf-8")
     return 0
 
 

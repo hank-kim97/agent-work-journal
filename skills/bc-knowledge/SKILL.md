@@ -12,7 +12,7 @@ description: RE팀 업무 기록 레포를 조회한다 — 팀원이 무슨 일
 | `activity/<사람>/` | 일지 원본 (세션별 Done·Next, 날짜별) | "누가 뭐 했나", "어디까지 진행됐나" |
 | `cards/` | 증류된 문제-해결 카드 | "이 에러 어떻게 푸나", "누가 겪어봤나" |
 
-인덱스가 둘이니 헷갈리지 말 것: 레포 루트 `INDEX.md`는 **카드** 목록, `activity/INDEX.md`는 **활동** 목록이다 (`cards/INDEX.md`는 없다).
+인덱스가 헷갈리지 않게: 레포 루트 `INDEX.md`는 **카드** 목록, `activity/<사람>/INDEX.md`는 그 **사람의 활동** 목록이다 (`cards/INDEX.md`와 팀 공용 `activity/INDEX.md`는 없다 — 활동은 사람별로 쪼개져 있어 팀 전체는 `activity/*/INDEX.md` glob으로 본다).
 
 ## 0. 준비 (항상 먼저)
 
@@ -30,11 +30,11 @@ git -C "$REPO" pull --ff-only 2>/dev/null || true
 ```bash
 ls "$REPO/activity"                                   # 팀원 목록
 ls "$REPO/activity" | grep -i <이름 일부>              # 이름을 정확히 모를 때 (Hank → Taehan_Hank_Kim)
-grep '| <날짜> ' "$REPO/activity/INDEX.md"             # 그날 전원·전 프로젝트 한 줄씩 (여기부터)
+grep '| <날짜> ' "$REPO"/activity/*/INDEX.md            # 그날 전원·전 프로젝트 한 줄씩 (여기부터)
 cat "$REPO/activity/<사람>/<프로젝트>/<날짜>.md"        # 세션 상세 (Done·Next)
 ```
 
-- **오늘/특정일 요약**: `activity/INDEX.md`를 날짜로 grep한다 — 그날의 (세션 × 프로젝트)가 한 줄씩. 한 사람만 볼 거면 `activity/<사람>/_daily/<날짜>.md`도 같은 내용이다.
+- **오늘/특정일 요약**: `activity/*/INDEX.md`를 날짜로 grep한다 (인덱스는 사람별로 쪼개져 있다 — glob으로 한 번에) — 그날의 (세션 × 프로젝트)가 한 줄씩. 한 사람만 볼 거면 `activity/<사람>/_daily/<날짜>.md`도 같은 내용이다.
 - **기간 질의**("이번 주"): INDEX를 날짜 범위로 grep해 목록을 만들고, 필요한 것만 프로젝트 파일로 내려간다.
 - **날짜에 파일이 없을 때**: 레포가 낡은 것과 그날 기록이 없는 것을 **구분해서** 답한다. `git -C "$REPO" log -1 --format=%ci`가 최근이면 "동기화는 됐고 그날 기록된 세션이 없다"이다. 단정 대신 이렇게 말할 것.
 
@@ -74,10 +74,10 @@ grep -ril <주제어> "$REPO/activity/<사람>"     # 여러 주제어를 각각
 
 ## 3. 리포트 요청 — "이 기간 정리해줘"
 
-**`activity/INDEX.md`에서 시작한다.** 기간 전체의 (날짜·사람·프로젝트·제목·세션)이 한 파일에 있다.
+**사람별 활동 인덱스에서 시작한다.** 기간 전체의 (날짜·사람·프로젝트·제목·세션)이 한 파일에 있다.
 
 ```bash
-grep '| 2026-07-' "$REPO/activity/INDEX.md"        # 그 기간 전 세션을 한 번에
+grep '| 2026-07-' "$REPO"/activity/*/INDEX.md      # 그 기간 전원·전 세션을 한 번에
 ```
 
 1. 제목을 훑어 리포트에 들어갈 세션을 **고른다.** 그 다음에야 해당 파일만 연다.

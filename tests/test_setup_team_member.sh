@@ -3,6 +3,7 @@ set -uo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
 . "$HERE/helpers.sh"
+export WORK_JOURNAL_SKIP_LAUNCHCTL=1   # 실제 launchd를 오염시키지 않는다
 
 # isolated temp config — new-member scenario means it starts absent
 export WORK_JOURNAL_CONFIG="$(mktemp -u)"
@@ -50,5 +51,28 @@ HOME="$sandbox/home" bash "$ROOT/setup-team-member.sh" \
 assert_eq "$?" "0" "re-run idempotent"
 n=$(python3 -c "import json;print(len(json.load(open('$WORK_JOURNAL_CONFIG'))['rules']))")
 assert_eq "$n" "1" "no duplicate rules on re-run"
+
+# 6) 주간 카드 추출 스케줄 — 안 걸면 카드가 영원히 안 생기므로 기본 등록이다
+plist="$sandbox/home/Library/LaunchAgents/com.$USER.work-journal-extract.plist"
+if [ "$(uname -s)" = "Darwin" ]; then
+  [ -f "$plist" ] && pass "weekly extraction plist written" || fail "weekly extraction plist written"
+  assert_file_contains "$plist" "extract-knowledge.sh" "plist runs the extractor"
+  # launchd는 PATH가 비어 있어 agent CLI를 못 찾는다 — 명시돼 있어야 한다
+  assert_file_contains "$plist" ".local/bin" "plist carries a PATH that can find the CLI"
+  assert_file_contains "$plist" "<key>Weekday</key>" "plist is weekly, not every run"
+  # 멤버를 요일로 분산해 같은 주 중복 카드화를 줄인다 (월~금 = 1~5)
+  wd=$(grep -A1 "<key>Weekday</key>" "$plist" | grep -o "[0-9]*" | head -1)
+  [ "$wd" -ge 1 ] && [ "$wd" -le 5 ] && pass "weekday staggered within Mon-Fri (got $wd)" \
+    || fail "weekday staggered within Mon-Fri (got $wd)"
+fi
+
+# 7) --no-schedule 이면 등록하지 않는다
+rm -f "$plist"
+HOME="$sandbox/home" bash "$ROOT/setup-team-member.sh" \
+  --work-prefix "$sandbox/projects" \
+  --journal-dir "$sandbox/home/work-journal-data" \
+  --knowledge-remote "$sandbox/team-kb.git" \
+  --knowledge-dir "$sandbox/home/re-team-work-log" --no-schedule >/dev/null 2>&1
+[ ! -f "$plist" ] && pass "--no-schedule skips registration" || fail "--no-schedule skips registration"
 
 finish
