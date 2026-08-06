@@ -39,7 +39,7 @@ bash setup-team-member.sh \
   --knowledge-remote git@github.com:<org>/re-team-work-log.git
 ```
 
-config 배선 → 훅 설치 → 개인 데이터 레포 init → 팀 지식 레포 clone → `/knowledge` 스킬 설치까지 한 번에 처리하며, 재실행해도 안전합니다(멱등). 주간 추출 스케줄만 출력 안내에서 선택하면 됩니다.
+config 배선 → 훅 설치 → 개인 데이터 레포 init → 팀 지식 레포 clone → `/bc-knowledge` 스킬 설치까지 한 번에 처리하며, 재실행해도 안전합니다(멱등). 주간 추출 스케줄만 출력 안내에서 선택하면 됩니다.
 
 > ⚠️ **도구 디렉토리를 이동/이름변경하면** 훅과 스킬이 절대경로라 조용히 끊깁니다 — `setup-team-member.sh`를 재실행하세요.
 
@@ -111,7 +111,7 @@ scripts/
 
 ## 팀 지식 추출 — RE팀 업무 기록 (선택)
 
-개인 일지에서 팀 재사용 지식(트러블슈팅 카드)을 주 1회 자동 증류해 팀 공용 레포에 축적하고, `/knowledge` 스킬로 검색합니다. 완전 opt-in — 미설정 시 코어에 영향 없음.
+개인 일지에서 팀 재사용 지식(트러블슈팅 카드)을 주 1회 자동 증류해 팀 공용 레포에 축적하고, `/bc-knowledge` 스킬로 검색합니다. 완전 opt-in — 미설정 시 코어에 영향 없음.
 
 ```bash
 bash install-knowledge.sh --repo ~/re-team-work-log

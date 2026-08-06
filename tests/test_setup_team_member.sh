@@ -37,7 +37,7 @@ assert_file_contains "$sandbox/home/work-journal-data/.gitignore" "private/" "pr
 
 # 4) 지식 레포 clone (cards/ 유지) + 스킬 설치
 [ -d "$sandbox/home/re-team-work-log/cards" ] && pass "knowledge repo cloned with cards/" || fail "knowledge repo cloned with cards/"
-[ -f "$sandbox/home/.claude/skills/knowledge/SKILL.md" ] && pass "knowledge skill installed" || fail "knowledge skill installed"
+[ -f "$sandbox/home/.claude/skills/bc-knowledge/SKILL.md" ] && pass "knowledge skill installed" || fail "knowledge skill installed"
 kr=$(python3 -c "import json;print(json.load(open('$WORK_JOURNAL_CONFIG')).get('knowledge_repo',''))")
 assert_eq "$kr" "$sandbox/home/re-team-work-log" "knowledge_repo configured"
 

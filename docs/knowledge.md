@@ -1,6 +1,6 @@
 # RE팀 업무 기록 — 팀 지식 레포 (opt-in)
 
-개인 업무일지를 팀 공용 git 레포("RE팀 업무 기록")로 흘려보내, 팀원(과 그 에이전트)이 `/knowledge` 스킬 하나로 조회하게 합니다.
+개인 업무일지를 팀 공용 git 레포("RE팀 업무 기록")로 흘려보내, 팀원(과 그 에이전트)이 `/bc-knowledge` 스킬 하나로 조회하게 합니다.
 
 레포에는 **성격이 다른 두 개의 면**이 있습니다.
 
@@ -17,7 +17,7 @@
 
 **단 하나의 예외는 자격증명입니다.** git 히스토리에 들어간 API 키는 회수할 수 없으므로 `apply-knowledge.py`가 결정론적으로 차단합니다(fail-closed, 아래 참조). 변수명 언급(`FLASK_SECRET_KEY가 불일치`)은 무방하고, **값**만 금지입니다.
 
-> 외부(고객·공개) 배포용으로 이 레포 내용을 쓸 때는 사람이 한 번 걸러야 합니다. `/knowledge` 스킬이 그 경고를 띄웁니다.
+> 외부(고객·공개) 배포용으로 이 레포 내용을 쓸 때는 사람이 한 번 걸러야 합니다. `/bc-knowledge` 스킬이 그 경고를 띄웁니다.
 
 ## 코어 파이프라인과의 관계
 
@@ -27,14 +27,14 @@
 
 | 파일 | 역할 |
 |---|---|
-| `install-knowledge.sh` | opt-in 설치기 — config 기록, 레포 스캐폴드, `/knowledge` 스킬 설치 |
+| `install-knowledge.sh` | opt-in 설치기 — config 기록, 레포 스캐폴드, `/bc-knowledge` 스킬 설치 |
 | `scripts/core/sync-activity.sh` | 일지 → `activity/` 미러 (LLM 없음, 증분, 시간당 1회 push) |
 | `scripts/core/build-activity-index.py` | `activity/INDEX.md` 재생성 (기간 전수 열람용) |
 | `scripts/core/rebuild-daily-index.py` | 유지보수 — `_daily`를 프로젝트 일지에서 재생성 |
 | `scripts/core/extract-knowledge.sh` | 주간 지식 추출 배치 — **2단계** (triage → 세션별 카드) |
 | `scripts/core/filter-transcript.py` | 세션 트랜스크립트(수십 MB)를 근거 60KB로 압축 |
 | `scripts/core/apply-knowledge.py` | 추출 출력 파싱·적용 + 자격증명 게이트 + INDEX 재생성 |
-| `skills/knowledge/SKILL.md` | 조회 스킬 (활동 질의 / 기술 질의 / 리포트 라우팅) |
+| `skills/bc-knowledge/SKILL.md` | 조회 스킬 (활동 질의 / 기술 질의 / 리포트 라우팅) |
 
 ## 설치
 
@@ -138,7 +138,7 @@ score = 진단 키워드 + 3×판정어(원인/확정/소거…) + 5×주제어
 ### 잔여 위험 (정직한 한계)
 
 - **PII 리댁션이 없습니다.** 이는 의도된 설계입니다(사내 내부용). 이 레포를 외부 공개하거나 사외 인원에게 열면 그 순간 위 전제가 깨집니다 — **원격 접근 권한이 유일한 경계**입니다.
-- **고객 제출 문서를 여기서 뽑을 때는 사람이 걸러야 합니다.** 리포트 dry-run에서 `activity/` 원문에 실명+사번, 내부 IP·호스트, GitLab MR 경로, 환경변수명, 그리고 우리가 고친 취약점 이력이 그대로 있음이 확인됐습니다. `/knowledge` 스킬이 경고는 하지만 **자동 정제 도구는 없습니다** — 한 번 놓치면 사번이 고객 문서에 들어갑니다.
+- **고객 제출 문서를 여기서 뽑을 때는 사람이 걸러야 합니다.** 리포트 dry-run에서 `activity/` 원문에 실명+사번, 내부 IP·호스트, GitLab MR 경로, 환경변수명, 그리고 우리가 고친 취약점 이력이 그대로 있음이 확인됐습니다. `/bc-knowledge` 스킬이 경고는 하지만 **자동 정제 도구는 없습니다** — 한 번 놓치면 사번이 고객 문서에 들어갑니다.
 - **16자 미만 저엔트로피 비밀**(`password = hunter2`)과 **비표준 벤더 토큰의 bare 노출**은 오탐 임계 아래라 미커버
 - **프롬프트 인젝션에 의한 내용 왜곡**(카드 날조)은 잔존 — 자격증명 게이트를 우회할 수는 없어 유출이 아닌 무결성 리스크
 - `config.json`이 push 목적지를 결정하므로 **config.json 무결성이 보안 요소**

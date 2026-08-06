@@ -31,7 +31,7 @@ assert_file_contains "$repo_parent/kb/.gitignore" ".extract-cursor" "cursor giti
   && pass "scaffold committed" || fail "scaffold committed"
 
 # 3) 스킬 설치 + <TOOL_DIR> 치환
-skill="$sandbox_home/.claude/skills/knowledge/SKILL.md"
+skill="$sandbox_home/.claude/skills/bc-knowledge/SKILL.md"
 [ -f "$skill" ] && pass "skill installed under sandbox HOME" || fail "skill installed under sandbox HOME"
 # skill embeds the real tool-dir config path (runtime reads the real config,
 # not the test override) — <TOOL_DIR> must be substituted to $ROOT

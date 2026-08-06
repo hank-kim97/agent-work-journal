@@ -3,7 +3,7 @@
 # Core journaling (install.sh) is untouched — this wires three things:
 #   1. config.json knowledge_repo   ← where distilled cards live
 #   2. that repo's scaffold         ← cards/ + git init (if missing)
-#   3. ~/.claude/skills/knowledge   ← /knowledge search skill
+#   3. ~/.claude/skills/bc-knowledge ← /bc-knowledge search skill
 # Scheduling is intentionally NOT auto-registered (no cron reintroduction);
 # options are printed at the end.
 #
@@ -49,7 +49,7 @@ if [ ! -d "$REPO/.git" ]; then
 - `cards/` — 카드 (문제상황→시도→해결→정리, frontmatter: tags/sources)
 - `INDEX.md` — 자동 생성 목록 (직접 편집 금지)
 - `excluded.md` — 경계 규칙(단일 고객/프로젝트 이슈 제외) 감사 추적
-- 검색: `/knowledge` 스킬
+- 검색: `/bc-knowledge` 스킬
 MD
   ( cd "$REPO" && git add -A && git -c commit.gpgsign=false commit -qm "chore: scaffold RE-team knowledge repo" )
   echo "knowledge repo scaffolded: $REPO"
@@ -65,9 +65,9 @@ else
 fi
 
 # 3) /knowledge 스킬 설치 (<TOOL_DIR> 치환)
-SKILL_DST="$HOME/.claude/skills/knowledge"
+SKILL_DST="$HOME/.claude/skills/bc-knowledge"
 mkdir -p "$SKILL_DST"
-sed "s|<TOOL_DIR>|$TOOL_DIR|g" "$TOOL_DIR/skills/knowledge/SKILL.md" > "$SKILL_DST/SKILL.md"
+sed "s|<TOOL_DIR>|$TOOL_DIR|g" "$TOOL_DIR/skills/bc-knowledge/SKILL.md" > "$SKILL_DST/SKILL.md"
 echo "skill installed: $SKILL_DST/SKILL.md"
 
 cat <<EOF
