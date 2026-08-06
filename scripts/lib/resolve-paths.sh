@@ -34,4 +34,10 @@ AUTHOR="$(_cfg_get author)"
 # filesystem-safe (used as a directory name in the team repo)
 AUTHOR="$(printf '%s' "$AUTHOR" | tr ' /' '__')"
 
-export TOOL_DIR CONFIG_PATH JOURNAL_DIR KNOWLEDGE_REPO AUTHOR
+# What this team's record is called. Appears in extraction prompts, the card
+# INDEX header and the search skill. Teams keep separate repos, so each one
+# names its own; the default stays neutral for an unconfigured install.
+TEAM_NAME="$(_cfg_get team_name)"
+[ -z "$TEAM_NAME" ] && TEAM_NAME="팀 업무 기록"
+
+export TOOL_DIR CONFIG_PATH JOURNAL_DIR KNOWLEDGE_REPO AUTHOR TEAM_NAME

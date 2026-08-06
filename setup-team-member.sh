@@ -11,6 +11,7 @@
 #        [--knowledge-remote <git-url>] # team repo to clone (member #2+)
 #        [--knowledge-dir <dir>]        # default ~/re-team-work-log
 #        [--agent claude|codex|both]    # default claude
+#        [--team "<이름>"]              # record name, e.g. "Data팀 업무 기록"
 #        [--no-schedule]                # skip the weekly card-extraction job
 # WORK_JOURNAL_SKIP_LAUNCHCTL=1 writes the plist but does not load it (tests).
 set -euo pipefail
@@ -18,7 +19,7 @@ set -euo pipefail
 TOOL_DIR="$(cd "$(dirname "$0")" && pwd)"
 CONFIG="${WORK_JOURNAL_CONFIG:-$TOOL_DIR/config.json}"   # tests override this
 WORK_PREFIX=""; JDIR="$HOME/work-journal-data"; KREMOTE=""; KDIR="$HOME/re-team-work-log"; AGENT="claude"
-SCHEDULE="launchd"
+SCHEDULE="launchd"; TEAM=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --work-prefix)      WORK_PREFIX="$2"; shift 2 ;;
@@ -26,6 +27,7 @@ while [ $# -gt 0 ]; do
     --knowledge-remote) KREMOTE="$2"; shift 2 ;;
     --knowledge-dir)    KDIR="$2"; shift 2 ;;
     --agent)            AGENT="$2"; shift 2 ;;
+    --team)             TEAM="$2"; shift 2 ;;
     --no-schedule)      SCHEDULE="none"; shift ;;
     *) echo "unknown arg: $1" >&2; exit 2 ;;
   esac
@@ -71,7 +73,7 @@ if [ -n "$KREMOTE" ]; then
     echo "exists: $KDIR"
   fi
   echo "== 5/6 지식 확장 설치 =="
-  bash "$TOOL_DIR/install-knowledge.sh" --repo "$KDIR"
+  bash "$TOOL_DIR/install-knowledge.sh" --repo "$KDIR" ${TEAM:+--team "$TEAM"}
 
   echo "== 6/6 주간 카드 추출 스케줄 =="
   if [ "$SCHEDULE" = "none" ]; then

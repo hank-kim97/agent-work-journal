@@ -25,7 +25,7 @@ Safety rules:
   - INDEX.md is regenerated deterministically from card frontmatter.
 
 Usage:
-    apply-knowledge.py <knowledge_repo> [raw_file] [--date YYYY-MM-DD]
+    apply-knowledge.py <knowledge_repo> [raw_file] [--date YYYY-MM-DD] [--team NAME]
     (reads stdin when raw_file is omitted or "-")
 
 Exit codes: 0 ok (including no-op), 2 unparseable output,
@@ -118,7 +118,7 @@ def summarize_body_for_case(body: str) -> str:
     return line
 
 
-def rebuild_index(repo: Path) -> int:
+def rebuild_index(repo: Path, team: str = "팀 업무 기록") -> int:
     rows = []
     for p in sorted((repo / "cards").glob("*.md")):
         text = p.read_text(encoding="utf-8")
@@ -134,7 +134,7 @@ def rebuild_index(repo: Path) -> int:
             )
         )
     lines = [
-        "# RE팀 업무 기록 — INDEX",
+        f"# {team} — INDEX",
         "",
         f"> 카드 {len(rows)}장 (apply-knowledge.py 자동 생성 — 직접 편집 금지)",
         "",
@@ -154,8 +154,14 @@ def main() -> int:
         i = args.index("--date")
         date = args[i + 1]
         del args[i : i + 2]
+    team = "팀 업무 기록"          # each team names its own record; repos are separate
+    if "--team" in args:
+        i = args.index("--team")
+        team = args[i + 1]
+        del args[i : i + 2]
     if not args:
-        print("usage: apply-knowledge.py <knowledge_repo> [raw_file] [--date D]", file=sys.stderr)
+        print("usage: apply-knowledge.py <knowledge_repo> [raw_file] [--date D] [--team NAME]",
+              file=sys.stderr)
         return 2
     repo = Path(args[0])
     raw = (
@@ -236,7 +242,7 @@ def main() -> int:
         header = "# 추출 제외 목록 (경계 규칙 감사 추적)\n" if not ex.exists() else ex.read_text(encoding="utf-8")
         ex.write_text(header.rstrip() + f"\n\n## {date}\n{ex_text}\n", encoding="utf-8")
 
-    total = rebuild_index(repo) if (created or merged) else len(list(cards_dir.glob("*.md")))
+    total = rebuild_index(repo, team) if (created or merged) else len(list(cards_dir.glob("*.md")))
 
     print(f"apply-knowledge: +{len(created)} new, ~{len(merged)} merged, "
           f"!{len(skipped)} skipped, {total} total cards")

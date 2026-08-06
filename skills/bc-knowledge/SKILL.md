@@ -1,9 +1,9 @@
 ---
 name: bc-knowledge
-description: RE팀 업무 기록 레포를 조회한다 — 팀원이 무슨 일을 했는지·어디까지 진행했는지(활동), 그리고 이 문제를 누가 겪었고 어떻게 풀었는지(지식 카드). Use when asked "누가 오늘/이번주 뭐 했어", "A가 X 어디까지 했지", "이 에러 누가 겪어봤나", "비슷한 문제 있었나", "/bc-knowledge", "팀 기록", or before debugging an unfamiliar error.
+description: <TEAM_NAME> 레포를 조회한다 — 팀원이 무슨 일을 했는지·어디까지 진행했는지(활동), 그리고 이 문제를 누가 겪었고 어떻게 풀었는지(지식 카드). Use when asked "누가 오늘/이번주 뭐 했어", "A가 X 어디까지 했지", "이 에러 누가 겪어봤나", "비슷한 문제 있었나", "/bc-knowledge", "팀 기록", or before debugging an unfamiliar error.
 ---
 
-# /bc-knowledge — RE팀 업무 기록 조회
+# /bc-knowledge — <TEAM_NAME> 조회
 
 팀 레포에는 두 표면이 있다. **질문 성격을 보고 어디를 볼지 먼저 정한다.**
 

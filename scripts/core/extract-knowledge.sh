@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Weekly team-knowledge extraction (opt-in — "RE팀 업무 기록").
+# Weekly team-knowledge extraction (opt-in). The record's name comes from
+# config.json's team_name, so separate teams keep separate repos and wording.
 #
 # Two stages, because journals are a lossy summary of the work:
 #   1. TRIAGE  journals → which sessions are worth carding, their topics, and
@@ -112,7 +113,7 @@ run_llm() {  # run_llm <prompt-file> <out-file> → rc
 # ============================ STAGE 1 — TRIAGE ================================
 {
 cat <<PROMPT
-당신은 "RE팀 업무 기록"의 지식 추출 **분류자**입니다. 아래 업무일지를 읽고, **카드로 남길 가치가 있는 세션**만 골라내세요. 카드 본문은 쓰지 마세요 — 다음 단계에서 씁니다.
+당신은 "$TEAM_NAME"의 지식 추출 **분류자**입니다. 아래 업무일지를 읽고, **카드로 남길 가치가 있는 세션**만 골라내세요. 카드 본문은 쓰지 마세요 — 다음 단계에서 씁니다.
 
 $BOUNDARY
 
@@ -155,7 +156,7 @@ SESSIONS=$(grep '^=== SESSION:' "$WORK/triage.out" | sed 's/^=== SESSION: *//; s
 if [ -z "$SESSIONS" ]; then
   touch -r "$SCAN_MARK" "$CURSOR" 2>/dev/null || touch "$CURSOR"
   echo "$LOG_PREFIX no card-worthy session in $(echo "$FILES" | wc -l | tr -d ' ') changed files"
-  [ -s "$RAW" ] && python3 "$CORE_DIR/apply-knowledge.py" "$KREPO" "$RAW" --date "$DATE" >/dev/null 2>&1
+  [ -s "$RAW" ] && python3 "$CORE_DIR/apply-knowledge.py" "$KREPO" "$RAW" --date "$DATE" --team "$TEAM_NAME" >/dev/null 2>&1
   exit 0
 fi
 
@@ -184,7 +185,7 @@ for SID in $SESSIONS; do
 
   {
   cat <<PROMPT
-당신은 "RE팀 업무 기록" 지식 카드 **작성자**입니다. 아래 한 세션의 자료를 읽고 지정된 주제의 카드를 쓰세요.
+당신은 "$TEAM_NAME" 지식 카드 **작성자**입니다. 아래 한 세션의 자료를 읽고 지정된 주제의 카드를 쓰세요.
 
 작성자: $AUTHOR
 세션ID: $SID
@@ -266,7 +267,7 @@ done
 
 if ! grep -qE '^=== (CARD START:|APPEND TO:)' "$RAW"; then
   if [ -s "$RAW" ]; then
-    python3 "$CORE_DIR/apply-knowledge.py" "$KREPO" "$RAW" --date "$DATE" >/dev/null 2>&1
+    python3 "$CORE_DIR/apply-knowledge.py" "$KREPO" "$RAW" --date "$DATE" --team "$TEAM_NAME" >/dev/null 2>&1
   fi
   touch -r "$SCAN_MARK" "$CURSOR" 2>/dev/null || touch "$CURSOR"
   echo "$LOG_PREFIX no cards produced (triage picked $(echo "$SESSIONS" | wc -w | tr -d ' ') session(s))"
@@ -276,7 +277,7 @@ fi
 # --- apply + commit + advance cursor -----------------------------------------
 # Credential gate lives in apply-knowledge.py: secrets fail closed (exit 3,
 # nothing written, cursor kept — content never logged).
-python3 "$CORE_DIR/apply-knowledge.py" "$KREPO" "$RAW" --date "$DATE"
+python3 "$CORE_DIR/apply-knowledge.py" "$KREPO" "$RAW" --date "$DATE" --team "$TEAM_NAME"
 APPLY_RC=$?
 if [ "$APPLY_RC" -eq 3 ]; then
   echo "$LOG_PREFIX ABORT: credential detected (content withheld) — cursor not advanced"

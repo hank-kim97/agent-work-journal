@@ -229,4 +229,27 @@ KNOWLEDGE_LLM_CMD="$MOCKD/two" bash "$EXTRACT" >/dev/null 2>&1
 assert_file_contains "$MOCKD/second-prompt.txt" "이번 실행에서 방금 작성된 카드" "in-run card list reaches the next session"
 assert_file_contains "$MOCKD/second-prompt.txt" "ocr-502-size" "the earlier session's slug is visible for APPEND"
 
+# 12) 팀 이름이 프롬프트와 INDEX로 흐른다 (RE팀 하드코딩 제거 회귀)
+python3 -c "
+import json, sys
+p = sys.argv[1]; d = json.load(open(p)); d['team_name'] = 'Data팀 업무 기록'
+json.dump(d, open(p, 'w'), ensure_ascii=False)
+" "$WORK_JOURNAL_CONFIG"
+sleep 1; printf -- '- 팀 이름 검증\n' >> "$data/journals/demo/2026-07-20.md"
+cat > "$MOCKD/capture" <<EOF
+#!/usr/bin/env bash
+p=\$(cat)
+case "\$p" in
+  *"지식 추출 **분류자**"*) printf '%s\n' "\$p" > "$MOCKD/triage-prompt.txt"; cat "$MOCKD/triage.ok" ;;
+  *) printf '%s\n' "\$p" > "$MOCKD/card-prompt.txt"; cat "$MOCKD/card.ok" ;;
+esac
+EOF
+chmod +x "$MOCKD/capture"
+KNOWLEDGE_LLM_CMD="$MOCKD/capture" bash "$EXTRACT" >/dev/null 2>&1
+assert_file_contains "$MOCKD/triage-prompt.txt" "Data팀 업무 기록" "team name reaches the triage prompt"
+assert_file_contains "$MOCKD/card-prompt.txt" "Data팀 업무 기록" "team name reaches the card prompt"
+assert_file_contains "$krepo/INDEX.md" "Data팀 업무 기록 — INDEX" "team name heads the card INDEX"
+grep -rq "RE팀" "$MOCKD/triage-prompt.txt" "$MOCKD/card-prompt.txt" "$krepo/INDEX.md" \
+  && fail "no hardcoded team name remains" || pass "no hardcoded team name remains"
+
 finish

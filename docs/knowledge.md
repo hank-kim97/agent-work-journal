@@ -1,6 +1,6 @@
-# RE팀 업무 기록 — 팀 지식 레포 (opt-in)
+# 팀 지식 레포 (opt-in)
 
-개인 업무일지를 팀 공용 git 레포("RE팀 업무 기록")로 흘려보내, 팀원(과 그 에이전트)이 `/bc-knowledge` 스킬 하나로 조회하게 합니다.
+개인 업무일지를 팀 공용 git 레포로 흘려보내, 팀원(과 그 에이전트)이 `/bc-knowledge` 스킬 하나로 조회하게 합니다.
 
 레포에는 **성격이 다른 두 개의 면**이 있습니다.
 
@@ -18,6 +18,22 @@
 **단 하나의 예외는 자격증명입니다.** git 히스토리에 들어간 API 키는 회수할 수 없으므로 `apply-knowledge.py`가 결정론적으로 차단합니다(fail-closed, 아래 참조). 변수명 언급(`FLASK_SECRET_KEY가 불일치`)은 무방하고, **값**만 금지입니다.
 
 > 외부(고객·공개) 배포용으로 이 레포 내용을 쓸 때는 사람이 한 번 걸러야 합니다. `/bc-knowledge` 스킬이 그 경고를 띄웁니다.
+
+## 팀이 여럿이면 레포도 여럿
+
+**한 팀 = 한 레포 = 한 이름**입니다. 도구는 동일하고 `config.json`의 `knowledge_repo`와 `team_name`만 다르게 잡으면 팀마다 완전히 독립된 기록이 됩니다.
+
+```bash
+bash setup-team-member.sh --work-prefix ~/Documents/data \
+  --knowledge-remote <Data팀 레포 URL> --knowledge-dir ~/data-team-work-log \
+  --team "Data팀 업무 기록"
+```
+
+`team_name`은 추출 프롬프트·카드 `INDEX.md` 헤더·`/bc-knowledge` 스킬 문안에 주입됩니다(미지정 시 중립 기본값 `팀 업무 기록`).
+
+레포를 나누면 접근이 팀별로 격리되는 대신 **일반 기술 지식이 양쪽에 중복 축적**됩니다. 이 레포가 고객명·사번을 그대로 담는 이상, 서로 봐도 되는 사이가 아니면 분리가 맞는 선택입니다.
+
+**한 사람이 두 팀에 동시에 속하는 것은 지원하지 않습니다** — `knowledge_repo`가 config 최상위 키 하나라 work 범주 일지는 전부 한 레포로 갑니다. 필요해지면 규칙별 `knowledge_repo`로 확장해야 합니다.
 
 ## 코어 파이프라인과의 관계
 

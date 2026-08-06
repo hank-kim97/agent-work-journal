@@ -42,4 +42,23 @@ grep -q '<TOOL_DIR>' "$skill" && fail "no raw placeholder remains" || pass "no r
 HOME="$sandbox_home" bash "$ROOT/install-knowledge.sh" --repo "$repo_parent/kb" >/dev/null
 assert_eq "$?" "0" "re-run is idempotent"
 
+# 팀 이름은 설정값이다 — 다른 팀이 같은 도구로 자기 이름을 쓴다
+sandbox2="$(mktemp -d)"; export HOME="$sandbox2"
+cfg2="$(mktemp -u)"; repo2="$sandbox2/data-team-work-log"
+WORK_JOURNAL_CONFIG="$cfg2" bash "$ROOT/install-knowledge.sh" --repo "$repo2" --team "Data팀 업무 기록" >/dev/null 2>&1
+assert_eq "$(python3 -c "import json;print(json.load(open('$cfg2'))['team_name'])")" \
+  "Data팀 업무 기록" "team_name recorded in config"
+assert_file_contains "$repo2/README.md" "Data팀 업무 기록" "scaffolded README uses the team's name"
+assert_file_contains "$sandbox2/.claude/skills/bc-knowledge/SKILL.md" "Data팀 업무 기록" "skill renders the team's name"
+grep -q "RE팀" "$sandbox2/.claude/skills/bc-knowledge/SKILL.md" && fail "no other team's name leaks in" \
+  || pass "no other team's name leaks in"
+grep -q "<TEAM_NAME>" "$sandbox2/.claude/skills/bc-knowledge/SKILL.md" && fail "placeholder substituted" \
+  || pass "placeholder substituted"
+# 미지정이면 중립 기본값
+cfg3="$(mktemp -u)"
+WORK_JOURNAL_CONFIG="$cfg3" bash "$ROOT/install-knowledge.sh" --repo "$sandbox2/kb3" >/dev/null 2>&1
+assert_eq "$(python3 -c "import json;print(json.load(open('$cfg3'))['team_name'])")" \
+  "팀 업무 기록" "neutral default when --team is omitted"
+rm -f "$cfg2" "$cfg3"
+
 finish
